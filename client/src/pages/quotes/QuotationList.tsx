@@ -14,7 +14,7 @@ import Badge from "../../components/Badge";
 
 interface QuotationItem {
   id: number;
-  ref: str;
+  ref: string;
   leadName: string;
   packageCode: string;
   total: number;

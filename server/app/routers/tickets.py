@@ -241,19 +241,19 @@ def create_ticket(
     # warranty_until == today counts as covered
     under_warranty = su.warranty_until >= today if su.warranty_until else False
 
-    with db.begin():
-        ref = next_ref(db, "TKT")
-        ticket = Ticket(
-            ref=ref,
-            serial_unit_id=su.id,
-            lead_id=su.lead_id,
-            issue=body.issue,
-            status=TicketStatus.NEW,
-            under_warranty=under_warranty,
-            created_at=datetime.now(timezone.utc),
-        )
-        db.add(ticket)
-        db.flush()
+    ref = next_ref(db, "TKT")
+    ticket = Ticket(
+        ref=ref,
+        serial_unit_id=su.id,
+        lead_id=su.lead_id,
+        issue=body.issue,
+        status=TicketStatus.NEW,
+        under_warranty=under_warranty,
+        created_at=datetime.now(timezone.utc),
+    )
+    db.add(ticket)
+    db.commit()
+    db.refresh(ticket)
 
     return _build_detail(db, ticket)
 
@@ -273,7 +273,7 @@ def transition_ticket(
 
     assert_transition("ticket", ticket.status.value, body.to)
 
-    with db.begin():
+    if True:
         if body.to == "ASSIGNED":
             # Must provide a technician
             if not body.technician_id:

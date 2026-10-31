@@ -243,9 +243,10 @@ def start_job(
         raise ApiError(409, "Dispatch not done yet")
 
     assert_transition("job", job.status.value, "IN_PROGRESS")
-    with db.begin():
-        job.status = JobStatus.IN_PROGRESS
-        job.started_at = datetime.now(timezone.utc)
+    job.status = JobStatus.IN_PROGRESS
+    job.started_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(job)
 
     return _build_detail(db, job)
 
@@ -277,11 +278,12 @@ def finish_job(
         raise ApiError(409, "Add at least one photo")
 
     assert_transition("job", job.status.value, "DONE")
-    with db.begin():
-        job.status = JobStatus.DONE
-        job.finished_at = datetime.now(timezone.utc)
-        job.signature = body.signature
-        job.size_confirmed = body.size_confirmed
-        job.photos = body.photos
+    job.status = JobStatus.DONE
+    job.finished_at = datetime.now(timezone.utc)
+    job.signature = body.signature
+    job.size_confirmed = body.size_confirmed
+    job.photos = body.photos
+    db.commit()
+    db.refresh(job)
 
     return _build_detail(db, job)

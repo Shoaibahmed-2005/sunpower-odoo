@@ -4,6 +4,7 @@ interface BadgeProps {
   status: string;
   size?: "sm" | "md";
   className?: string;
+  children?: React.ReactNode;
 }
 
 const successStatuses = new Set([
@@ -36,9 +37,9 @@ function getStatusStyle(status: string): string {
   return "bg-surface-2 text-muted border border-border";
 }
 
-export default function Badge({ status, size = "md", className = "" }: BadgeProps) {
+export default function Badge({ status, size = "md", className = "", children }: BadgeProps) {
   const sizeClass = size === "sm" ? "px-2 py-0.5 text-[11px]" : "px-2.5 py-0.5 text-xs";
-  const displayLabel = status.replace(/_/g, " ");
+  const displayLabel = children ?? status.replace(/_/g, " ");
 
   return (
     <span

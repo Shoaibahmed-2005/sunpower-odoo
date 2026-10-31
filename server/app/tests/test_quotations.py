@@ -94,6 +94,11 @@ def test_payment_validation_and_types(db):
     """Payment must be 1 <= amount <= balance. Creates FULL or ADVANCE invoice."""
     user = get_user_by_role(db, Role.SALES)
     quote = db.query(Quotation).filter(Quotation.status == QuoteStatus.DRAFT).first()
+    if not quote:
+        lead = db.query(Lead).filter(Lead.stage == LeadStage.SURVEY_APPROVED).first()
+        pkg = db.query(Package).first()
+        res = create_quotation(lead.id, CreateQuotationRequest(package_id=pkg.id), user=user, db=db)
+        quote = db.query(Quotation).filter(Quotation.id == res.id).first()
     net = quote.total - quote.subsidy
 
     # Payment > balance -> 400
@@ -127,6 +132,11 @@ def test_confirm_gate_no_payment(db):
     quote = db.query(Quotation).filter(Quotation.status == QuoteStatus.SENT).first()
     if not quote:
         quote = db.query(Quotation).filter(Quotation.status == QuoteStatus.DRAFT).first()
+    if not quote:
+        lead = db.query(Lead).filter(Lead.stage == LeadStage.SURVEY_APPROVED).first()
+        pkg = db.query(Package).first()
+        res = create_quotation(lead.id, CreateQuotationRequest(package_id=pkg.id), user=user, db=db)
+        quote = db.query(Quotation).filter(Quotation.id == res.id).first()
     # Ensure no paid invoices
     for inv in quote.invoices:
         db.delete(inv)
@@ -200,6 +210,11 @@ def test_cancel_and_update_gates(db):
     """Cannot update quote after payment; cannot cancel confirmed quote."""
     user = get_user_by_role(db, Role.SALES)
     quote = db.query(Quotation).filter(Quotation.status == QuoteStatus.DRAFT).first()
+    if not quote:
+        lead = db.query(Lead).filter(Lead.stage == LeadStage.SURVEY_APPROVED).first()
+        pkg = db.query(Package).first()
+        res = create_quotation(lead.id, CreateQuotationRequest(package_id=pkg.id), user=user, db=db)
+        quote = db.query(Quotation).filter(Quotation.id == res.id).first()
     pkg2 = db.query(Package).filter(Package.id != quote.package_id).first()
 
     # Record a payment

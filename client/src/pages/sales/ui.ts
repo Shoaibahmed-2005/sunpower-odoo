@@ -1,18 +1,29 @@
 // Member B's single adapter to teammates' shared code (BUILD_PLAN §9).
 // If a teammate exported something under a different name or path, fix it HERE only.
-export { api } from "../../api/client";                         // C: axios instance, baseURL "/api", error toasts
+import apiDefault from "../../api/client";
+import PageHeaderDefault from "../../components/PageHeader";
+import DataTableDefault from "../../components/DataTable";
+import StatusBarDefault from "../../components/StatusBar";
+import BadgeDefault from "../../components/Badge";
+import FieldDefault from "../../components/Field";
+import ButtonDefault from "../../components/Button";
+import PhoneLayoutDefault from "../../components/PhoneLayout";
+import LogoDefault from "../../components/Logo";
+
+export const api = apiDefault;
+export const PageHeader = PageHeaderDefault;
+export const DataTable = DataTableDefault;
+export const StatusBar = StatusBarDefault;
+export const Badge = BadgeDefault;
+export const Field = FieldDefault;
+export const Button = ButtonDefault;
+export const PhoneLayout = PhoneLayoutDefault;
+export const Logo = LogoDefault;
+
 export { qk } from "../../lib/queryKeys";                       // C: React Query keys
 export { formatDate, formatDateTime, formatINR } from "../../lib/format"; // C
 export { useAuth } from "../../auth/AuthContext";               // C: { user, can(perm) }
-export { PageHeader } from "../../components/PageHeader";       // D
-export { DataTable } from "../../components/DataTable";         // D
-export { StatusBar } from "../../components/StatusBar";         // D
-export { Badge } from "../../components/Badge";                 // D
-export { Field } from "../../components/Field";                 // D
-export { Button } from "../../components/Button";               // D
 export { toast } from "../../components/Toast";                 // D
-export { PhoneLayout } from "../../components/PhoneLayout";     // D
-export { Logo } from "../../components/Logo";                   // D
 
 // Plain inputs styled only with D's tokens (no hard-coded colours, §9.1)
 export const inputCls =
