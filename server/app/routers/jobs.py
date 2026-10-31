@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 from pydantic import BaseModel, field_validator
 
 from app.db import get_db
-from app.auth import get_current_user, require_perm
+from app.auth import get_current_user, require_perm, has_perm
 from app.errors import ApiError
 from app.schemas.base import ApiModel
 from app.transitions import assert_transition
@@ -211,16 +211,16 @@ def my_jobs(
 @router.get("/{job_id}", response_model=JobDetail)
 def get_job(
     job_id: int,
-    user=Depends(require_perm("jobs:read")),
+    user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Job detail with lines, serials, times, signature flag. Perm: jobs:read or own."""
     job = db.get(Job, job_id)
     if not job:
         raise ApiError(404, "Job not found")
-    # Technician can only see their own
-    if user.role.value == "TECHNICIAN" and job.technician_id != user.id:
-        raise ApiError(403, "Not your job")
+    if not has_perm(user, "jobs:read"):
+        if not (has_perm(user, "jobs:mine") and job.technician_id == user.id):
+            raise ApiError(403, "Not your job")
     return _build_detail(db, job)
 
 

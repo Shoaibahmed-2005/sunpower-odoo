@@ -28,6 +28,12 @@ export default function JobWorksheet() {
     queryFn: () => api.get(`/jobs/${id}`).then((r) => r.data),
   });
 
+  React.useEffect(() => {
+    if (job?.kw && !sizeConfirmed) {
+      setSizeConfirmed(String(job.kw));
+    }
+  }, [job?.kw]);
+
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: qk.jobs });
     queryClient.invalidateQueries({ queryKey: qk.myJobs });
