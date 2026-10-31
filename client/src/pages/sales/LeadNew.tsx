@@ -1,4 +1,4 @@
-// New enquiry (Member B): Sales types in a call / WhatsApp / walk-in enquiry.
+// New enquiry: Sales types in a call / WhatsApp / walk-in enquiry.
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";

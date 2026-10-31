@@ -1,4 +1,4 @@
-"""All SQLAlchemy tables and enums (BUILD_PLAN §5). Owner: A only; others request changes via [SCHEMA].
+"""All SQLAlchemy tables and enums.
 
 Money is integer rupees. Times are timezone-aware UTC.
 """
@@ -115,7 +115,7 @@ class TicketStatus(str, enum.Enum):
     CLOSED = "CLOSED"
 
 
-# day 2
+
 class SubsidyStage(str, enum.Enum):
     NOT_STARTED = "NOT_STARTED"
     APPLIED = "APPLIED"
@@ -377,7 +377,7 @@ class Ticket(Base):
     technician: Mapped[User | None] = relationship()
 
 
-# ---------- Day 2 tables (BUILD_PLAN §5) ----------
+# ---------- Subsidy, technician pay, receipts, images, customer portal ----------
 
 class SubsidyApplication(Base):
     """Government subsidy paperwork for one installed job (C's tracker)."""

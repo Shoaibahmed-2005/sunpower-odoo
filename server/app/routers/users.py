@@ -1,4 +1,4 @@
-"""Staff users (Member B). No public sign-up: only the Admin creates accounts."""
+"""Staff users. No public sign-up: only the Admin creates accounts."""
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, Response

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../../components/Logo";
 import { usePortal } from "../../portal/PortalContext";
-import { portalService } from "../../portal/api";
+import { portalService, errorText } from "../../portal/api";
 import { Phone, Lock, KeyRound, ArrowRight, ArrowLeft } from "lucide-react";
 
 export default function CustomerForgot() {
@@ -15,6 +15,7 @@ export default function CustomerForgot() {
   const [newPassword, setNewPassword] = useState("");
   const [demoCode, setDemoCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
   const handleStart = async (e: React.FormEvent) => {
@@ -24,13 +25,19 @@ export default function CustomerForgot() {
 
     try {
       const res = await portalService.forgotPassword(phone);
+      // Same reply whether or not the number has an account (so nobody can probe numbers).
+      // In demo mode a code only comes back if the account exists.
       if (res.data.demo_code) {
         setDemoCode(res.data.demo_code);
         setCode(res.data.demo_code);
+        setNotice(null);
+      } else {
+        setDemoCode(null);
+        setNotice("If this number has a SunPower account, a code has been sent. No account yet? Create one first.");
       }
       setStep(2);
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Failed to process request");
+      setError(errorText(err, "Failed to process request"));
     } finally {
       setLoading(false);
     }
@@ -50,7 +57,7 @@ export default function CustomerForgot() {
       await refreshCustomer();
       navigate("/portal/home");
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Failed to reset password");
+      setError(errorText(err, "Failed to reset password"));
     } finally {
       setLoading(false);
     }
@@ -75,6 +82,15 @@ export default function CustomerForgot() {
           {error && (
             <div className="mb-4 p-3 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-sm">
               {error}
+            </div>
+          )}
+
+          {notice && (
+            <div className="mb-4 p-3 rounded-lg bg-slate-50 border border-slate-200 text-slate-700 text-xs">
+              {notice}{" "}
+              <Link to="/portal/signup" className="font-semibold text-amber-700 hover:underline">
+                Create account
+              </Link>
             </div>
           )}
 

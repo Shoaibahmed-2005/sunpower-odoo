@@ -1,4 +1,4 @@
-// Technician survey form on the phone (Member B): measured on the roof, submitted for Sales to approve.
+// Technician survey form on the phone: measured on the roof, submitted for Sales to approve.
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";

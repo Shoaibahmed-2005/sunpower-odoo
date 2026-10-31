@@ -1,4 +1,4 @@
-"""Tests for Admin role and user management (Member B, WP2).
+"""Admin role and user management.
 
 Covers:
 - non-admin 403 on every admin endpoint (GET /all, POST /, PATCH /{id}, POST /{id}/reset-password)

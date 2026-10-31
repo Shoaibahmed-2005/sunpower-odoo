@@ -40,22 +40,16 @@ def send_otp(db: Session, phone: str, purpose: str = "signup") -> dict:
     ten_min_ago = now - timedelta(minutes=10)
     thirty_sec_ago = now - timedelta(seconds=30)
 
-    # Rate limit: 1 request per 30 s
+    # Rate limits: 1 request per 30 s and 3 per 10 min for each phone (stops SMS flooding / guessing)
     recent = db.scalars(
-        select(CustomerOTP)
-        .where(CustomerOTP.phone == phone)
-        .order_by(desc(CustomerOTP.created_at))
+        select(CustomerOTP.created_at).where(CustomerOTP.phone == phone).order_by(desc(CustomerOTP.created_at))
     ).first()
-    if recent and to_utc(recent.created_at) >= thirty_sec_ago:
+    if recent and to_utc(recent) >= thirty_sec_ago:
         raise ApiError(429, "Please wait 30 seconds before requesting another code")
 
-    # Rate limit: max 3 per 10 min
-    otps_10m = db.scalars(
-        select(CustomerOTP)
-        .where(CustomerOTP.phone == phone)
-        .order_by(desc(CustomerOTP.created_at))
-    ).all()
-    count_10m = sum(1 for o in otps_10m if to_utc(o.created_at) >= ten_min_ago)
+    count_10m = db.scalar(
+        select(func.count(CustomerOTP.id)).where(CustomerOTP.phone == phone, CustomerOTP.created_at >= ten_min_ago)
+    )
     if count_10m >= 3:
         raise ApiError(429, "Too many OTP requests. Please wait 10 minutes")
 

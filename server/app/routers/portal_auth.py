@@ -2,7 +2,8 @@
 from datetime import datetime, timedelta, timezone
 import re
 from fastapi import APIRouter, Depends, Response
-from pydantic import Field, field_validator
+from typing import Annotated
+from pydantic import AfterValidator, Field, field_validator
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -18,86 +19,63 @@ from app.db import get_db
 from app.errors import ApiError
 from app.models import CustomerAccount
 from app.schemas.base import ApiModel
-from app.services.otp import send_otp, verify_otp
+from app.services.otp import send_otp, to_utc, verify_otp
 
 router = APIRouter(prefix="/api/portal/auth", tags=["portal-auth"])
 
+# One definition of a valid phone / password, reused by every request model below.
 PHONE_REGEX = re.compile(r"^[6-9]\d{9}$")
+
+
+def _check_phone(v: str) -> str:
+    v = v.strip()
+    if not PHONE_REGEX.match(v):
+        raise ValueError("Enter a valid 10-digit mobile number")
+    return v
+
+
+def _check_code(v: str) -> str:
+    v = v.strip()
+    if not (len(v) == 6 and v.isdigit()):
+        raise ValueError("Enter the 6-digit code")
+    return v
+
+
+Phone = Annotated[str, AfterValidator(_check_phone)]
+OtpCode = Annotated[str, AfterValidator(_check_code)]
 PASSWORD_REGEX = re.compile(r"^(?=.*[A-Za-z])(?=.*\d).{8,72}$")
 
-def to_utc(dt: datetime | None) -> datetime | None:
-    if dt is None:
-        return None
-    return dt if dt.tzinfo is not None else dt.replace(tzinfo=timezone.utc)
 
+def _check_password(v: str) -> str:
+    if not PASSWORD_REGEX.match(v):
+        raise ValueError("Password must be 8-72 characters and contain at least 1 letter and 1 digit")
+    return v
 
 
 class PhoneRequest(ApiModel):
-    phone: str = Field(...)
-
-    @field_validator("phone")
-    @classmethod
-    def validate_phone(cls, v: str) -> str:
-        v = v.strip()
-        if not PHONE_REGEX.match(v):
-            raise ValueError("Phone number must be a valid 10-digit Indian mobile number")
-        return v
+    phone: Phone
 
 
 class SignupVerifyRequest(ApiModel):
-    phone: str
-    code: str = Field(..., min_length=6, max_length=6)
+    phone: Phone
+    code: OtpCode
     name: str = Field(..., min_length=2, max_length=100)
-    password: str = Field(..., min_length=8, max_length=72)
+    password: str
 
-    @field_validator("phone")
-    @classmethod
-    def validate_phone(cls, v: str) -> str:
-        v = v.strip()
-        if not PHONE_REGEX.match(v):
-            raise ValueError("Phone number must be a valid 10-digit Indian mobile number")
-        return v
-
-    @field_validator("password")
-    @classmethod
-    def validate_password(cls, v: str) -> str:
-        if not PASSWORD_REGEX.match(v):
-            raise ValueError("Password must be 8-72 characters and contain at least 1 letter and 1 digit")
-        return v
+    _password = field_validator("password")(_check_password)
 
 
 class LoginRequest(ApiModel):
-    phone: str
+    phone: Phone
     password: str = Field(..., min_length=1, max_length=72)
-
-    @field_validator("phone")
-    @classmethod
-    def validate_phone(cls, v: str) -> str:
-        v = v.strip()
-        if not PHONE_REGEX.match(v):
-            raise ValueError("Phone number must be a valid 10-digit Indian mobile number")
-        return v
 
 
 class ResetPasswordRequest(ApiModel):
-    phone: str
-    code: str = Field(..., min_length=6, max_length=6)
-    new_password: str = Field(..., min_length=8, max_length=72)
+    phone: Phone
+    code: OtpCode
+    new_password: str
 
-    @field_validator("phone")
-    @classmethod
-    def validate_phone(cls, v: str) -> str:
-        v = v.strip()
-        if not PHONE_REGEX.match(v):
-            raise ValueError("Phone number must be a valid 10-digit Indian mobile number")
-        return v
-
-    @field_validator("new_password")
-    @classmethod
-    def validate_password(cls, v: str) -> str:
-        if not PASSWORD_REGEX.match(v):
-            raise ValueError("Password must be 8-72 characters and contain at least 1 letter and 1 digit")
-        return v
+    _password = field_validator("new_password")(_check_password)
 
 
 @router.post("/signup/start")

@@ -1,9 +1,9 @@
-/* tokens.css — Brand colours from §9, shape values from DESIGN.md */
+/* tokens.css — SunPower brand colours and shape values (radius, shadows, spacing) */
 
 @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap");
 
 :root {
-  /* Colours — from §9 brand kit only */
+  /* Colours — SunPower brand kit */
   --primary: #13315C;
   --primary-fg: #FFFFFF;
   --accent: #F5A524;

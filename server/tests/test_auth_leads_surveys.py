@@ -1,4 +1,4 @@
-"""Member B tests: auth (401/403), enquiry flow, survey gate. Run: cd server && uv run pytest -q tests/test_b_auth_leads_surveys.py
+"""Auth (401/403), enquiry flow and the survey gate.
 
 Uses its own in-memory SQLite DB so it never touches the team's Postgres data.
 Edge cases covered: no cookie, tampered cookie, wrong role, wrong password, bad phone, honeypot,

@@ -1,6 +1,5 @@
 /**
  * Invoices List page with Mark Paid action.
- * Owner: C (BUILD_PLAN §7, §9, §11 P1).
  */
 import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";

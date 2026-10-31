@@ -6,7 +6,17 @@ import { qk } from "../../lib/queryKeys";
 import PhonePage from "../../components/PhonePage";
 import Card from "../../components/Card";
 import Badge from "../../components/Badge";
-import { Wrench, ClipboardList, CheckCircle2, MapPin, Clock } from "lucide-react";
+import { Wrench, ClipboardList, CheckCircle2, MapPin, Clock, LifeBuoy } from "lucide-react";
+
+interface ServiceVisit {
+  id: number;
+  ref: string;
+  leadName: string;
+  leadAddress: string | null;
+  issue: string;
+  underWarranty: boolean;
+  status: string;
+}
 
 interface JobRow {
   id: number;
@@ -31,6 +41,14 @@ export default function TechHome() {
     queryFn: () => api.get("/surveys").then((r) => r.data),
     refetchInterval: 5000,
   });
+
+  // service visits Support assigned to me (only my own; filtered on the server)
+  const { data: visits = [] } = useQuery({
+    queryKey: qk.myTickets,
+    queryFn: () => api.get<ServiceVisit[]>("/tickets/mine").then((r) => r.data),
+    refetchInterval: 5000,
+  });
+  const openVisits = visits.filter((v) => v.status === "ASSIGNED" || v.status === "IN_REPAIR");
 
   const activeJobs = jobs.filter((j) => j.status !== "DONE");
   const doneJobs = jobs.filter((j) => j.status === "DONE");
@@ -83,6 +101,41 @@ export default function TechHome() {
           ))
         )}
       </div>
+
+      {/* Service Visits Section */}
+      {openVisits.length > 0 && (
+        <div className="space-y-3 pt-2">
+          <div className="flex items-center justify-between px-1">
+            <h2 className="font-heading text-base font-bold text-text flex items-center gap-2">
+              <LifeBuoy className="w-4 h-4 text-primary" />
+              <span>Service Visits</span>
+            </h2>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-warning/10 text-warning">
+              {openVisits.length} Open
+            </span>
+          </div>
+          {openVisits.map((v) => (
+            <Card
+              key={v.id}
+              onClick={() => navigate(`/m/tickets/${v.id}`)}
+              className="p-4 hover:border-primary/50 text-left bg-surface shadow-xs active:scale-[0.99] transition-transform"
+            >
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="font-mono text-sm font-bold text-primary">{v.ref}</span>
+                <Badge status={v.status} size="sm" />
+              </div>
+              <h3 className="font-heading text-base font-bold text-text truncate">{v.leadName}</h3>
+              <p className="text-xs text-muted mt-1 truncate">{v.issue}</p>
+              {v.leadAddress && (
+                <p className="text-xs text-muted mt-1 flex items-center gap-1 truncate">
+                  <MapPin className="w-3.5 h-3.5 shrink-0" />
+                  {v.leadAddress}
+                </p>
+              )}
+            </Card>
+          ))}
+        </div>
+      )}
 
       {/* Surveys Section */}
       {surveys.length > 0 && (

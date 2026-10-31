@@ -1,4 +1,4 @@
-"""Quotations and payments router. Owner: C (BUILD_PLAN §7, §8.2).
+"""Quotations and payments router.
 
 Gates:
 - No quotation unless survey is APPROVED (409 "Survey not approved yet")
@@ -6,9 +6,10 @@ Gates:
 - Payment amount must be 1 <= amount <= balance (400)
 - Confirm creates exactly one Job (SCHEDULED) + Dispatch (READY) + BALANCE Invoice (if balance > 0)
 """
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, Query, status
+from typing import Literal
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.auth import require_perm
@@ -25,7 +26,6 @@ from app.models import (
     Lead,
     LeadStage,
     Package,
-    Product,
     Quotation,
     QuoteLine,
     QuoteStatus,
@@ -33,6 +33,7 @@ from app.models import (
 )
 from app.refs import next_ref
 from app.schemas.base import ApiModel
+from app.services.payments import settle_payment
 from app.transitions import assert_transition
 
 router = APIRouter(prefix="/api", tags=["Quotations"])
@@ -50,7 +51,7 @@ class UpdateQuotationRequest(ApiModel):
 
 class RecordPaymentRequest(ApiModel):
     amount: int
-    method: str = "UPI"
+    method: Literal["UPI", "BANK", "CASH", "CARD"] = "UPI"  # offline payments; online ones come from Razorpay
 
 
 class ConfirmQuotationRequest(ApiModel):
@@ -88,6 +89,7 @@ class InvoiceBrief(ApiModel):
     type: str
     amount: int
     status: str
+    method: str | None = None
     created_at: str
     paid_at: str | None = None
 
@@ -120,6 +122,10 @@ class QuotationDetail(ApiModel):
     invoices: list[InvoiceBrief]
     created_at: str
     confirmed_at: str | None = None
+    accepted_name: str | None = None  # set when the customer accepts in the portal
+    accepted_at: str | None = None
+    preferred_date: str | None = None
+    online_paid: int = 0  # paid through Razorpay
 
 
 class ConfirmResponse(ApiModel):
@@ -162,6 +168,7 @@ def _build_detail(db: Session, quote: Quotation) -> QuotationDetail:
             type=inv.type.value,
             amount=inv.amount,
             status=inv.status.value,
+            method=inv.method,
             created_at=inv.created_at.isoformat(),
             paid_at=inv.paid_at.isoformat() if inv.paid_at else None,
         )
@@ -194,6 +201,12 @@ def _build_detail(db: Session, quote: Quotation) -> QuotationDetail:
         invoices=invoices_out,
         created_at=quote.created_at.isoformat(),
         confirmed_at=quote.confirmed_at.isoformat() if quote.confirmed_at else None,
+        accepted_name=quote.accepted_name,
+        accepted_at=quote.accepted_at.isoformat() if quote.accepted_at else None,
+        preferred_date=quote.preferred_date.isoformat() if quote.preferred_date else None,
+        online_paid=sum(
+            inv.amount for inv in quote.invoices if inv.status == InvoiceStatus.PAID and inv.method == "ONLINE"
+        ),
     )
 
 
@@ -397,7 +410,8 @@ def record_payment(
     db: Session = Depends(get_db),
 ):
     """Record payment for quotation. 1 <= amount <= balance."""
-    quote = db.get(Quotation, quotation_id)
+    # lock the row so two people can't record payments against the same balance at once
+    quote = db.get(Quotation, quotation_id, with_for_update=True)
     if not quote:
         raise ApiError(404, "Quotation not found")
 
@@ -416,20 +430,8 @@ def record_payment(
             f"Payment amount must be between ₹1 and current balance of ₹{balance}",
         )
 
-    is_full = (body.amount == balance) and (paid_before == 0)
-    inv_type = InvoiceType.FULL if is_full else InvoiceType.ADVANCE
-
-    inv_ref = next_ref(db, "INV")
-    invoice = Invoice(
-        ref=inv_ref,
-        lead_id=quote.lead_id,
-        quotation_id=quote.id,
-        type=inv_type,
-        amount=body.amount,
-        status=InvoiceStatus.PAID,
-        paid_at=datetime.now(timezone.utc),
-    )
-    db.add(invoice)
+    # after confirmation this settles the existing BALANCE invoice instead of adding a second one
+    settle_payment(db, quote, body.amount, method=body.method)
     db.commit()
     db.refresh(quote)
 

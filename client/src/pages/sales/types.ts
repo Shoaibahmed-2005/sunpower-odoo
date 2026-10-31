@@ -1,4 +1,4 @@
-// Shapes returned by Member B's API (BUILD_PLAN §7), plus small shared helpers for B's pages.
+// Shapes returned by the leads/surveys API, plus small shared helpers for the sales pages.
 
 export type LeadStage =
   | "NEW" | "CONTACTED" | "QUALIFIED" | "SURVEY_SCHEDULED" | "SURVEY_APPROVED" | "QUOTED" | "WON" | "LOST";

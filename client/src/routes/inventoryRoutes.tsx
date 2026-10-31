@@ -1,4 +1,4 @@
-// Owned by A — dashboard, dispatches, stock, receipts, serials, profit report.
+// dashboard, dispatches, stock, receipts, serials, profit report.
 import { AppRoute } from "../App";
 import Dashboard from "../pages/dashboard/Dashboard";
 import ProfitReport from "../pages/dashboard/ProfitReport";

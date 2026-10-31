@@ -1,4 +1,4 @@
-"""Tests for Member D: job start/finish gates and ticket transitions.
+"""Job start/finish gates, ticket transitions and technician service visits.
 Uses isolated in-memory SQLite DB so it never touches Postgres.
 """
 from datetime import date, datetime, timezone
@@ -338,3 +338,38 @@ def test_technician_can_open_only_their_own_job():
     r3_priya = c_priya.get("/api/jobs/3")
     assert r3_priya.status_code == 200
     assert r3_priya.json()["ref"] == "JOB/0003"
+
+
+def test_technician_service_visit_flow():
+    """Support assigns -> the technician sees it on his phone, starts and resolves it; he can't assign or close."""
+    support = client_as("farhan")
+    t = support.post("/api/tickets", json={"serialUnitId": 1, "issue": "Inverter displays error code E04"}).json()
+    support.post(f"/api/tickets/{t['id']}/transition", json={"to": "ASSIGNED", "technicianId": 3})  # vikram
+
+    vikram, arjun = client_as("vikram"), client_as("arjun")
+    mine = vikram.get("/api/tickets/mine").json()
+    assert [x["ref"] for x in mine] == [t["ref"]] and mine[0]["leadAddress"]
+    assert arjun.get("/api/tickets/mine").json() == []  # only his own
+
+    # another technician can neither read nor move it
+    assert arjun.get(f"/api/tickets/{t['id']}").status_code == 403
+    assert arjun.post(f"/api/tickets/{t['id']}/transition", json={"to": "IN_REPAIR"}).status_code == 403
+    # technicians still can't see the full ticket list
+    assert vikram.get("/api/tickets").status_code == 403
+
+    assert vikram.get(f"/api/tickets/{t['id']}").status_code == 200
+    assert vikram.post(f"/api/tickets/{t['id']}/transition", json={"to": "IN_REPAIR"}).json()["status"] == "IN_REPAIR"
+    r = vikram.post(f"/api/tickets/{t['id']}/transition", json={"to": "RESOLVED", "partsCost": 3500, "labourCost": 1500})
+    assert r.status_code == 200 and r.json()["billAmount"] == 5000  # expired serial -> billed automatically
+    # resolving twice is refused, so the customer is never billed twice
+    assert vikram.post(f"/api/tickets/{t['id']}/transition", json={"to": "RESOLVED", "partsCost": 1, "labourCost": 1}).status_code == 409
+
+    # closing needs the customer's confirmation, which is Support's / the customer's step, not the technician's
+    assert vikram.post(f"/api/tickets/{t['id']}/transition", json={"to": "CLOSED", "customerConfirmed": True}).status_code == 403
+    assert support.post(f"/api/tickets/{t['id']}/transition", json={"to": "CLOSED", "customerConfirmed": True}).status_code == 200
+
+
+def test_technician_cannot_assign_tickets():
+    support = client_as("farhan")
+    t = support.post("/api/tickets", json={"serialUnitId": 1, "issue": "Inverter displays error code E04"}).json()
+    assert client_as("vikram").post(f"/api/tickets/{t['id']}/transition", json={"to": "ASSIGNED", "technicianId": 3}).status_code == 403

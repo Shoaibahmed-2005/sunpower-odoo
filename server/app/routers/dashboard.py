@@ -1,4 +1,4 @@
-"""Dashboard counts and the profit-per-job report (JSON + CSV). Owner: A. Everything is computed on request, nothing stored."""
+"""Dashboard counts and the profit-per-job report (JSON + CSV). Everything is computed on request, nothing stored."""
 import csv
 import io
 from datetime import date, datetime, time, timedelta, timezone
@@ -113,7 +113,7 @@ def dashboard(period: Period = "today", user=Depends(require_perm("dashboard:rea
     return {"period": period, **{g: build_group(db, g, since, today) for g in sorted(groups)}}
 
 
-# ---------- Profit per job (BUILD_PLAN §8.3, with the team's revenue + crew decisions) ----------
+# ---------- Profit per job ----------
 
 class ProfitRow(ApiModel):
     job_id: int

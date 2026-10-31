@@ -1,4 +1,4 @@
-// Owned by A — dispatch list with status filter and a kanban board view.
+// dispatch list with status filter and a kanban board view.
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";

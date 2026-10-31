@@ -1,4 +1,4 @@
-"""Enquiries (leads) and the public enquiry form (Member B)."""
+"""Enquiries (leads) and the public enquiry form."""
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends

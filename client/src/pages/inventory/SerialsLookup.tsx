@@ -1,4 +1,4 @@
-// Owned by A — find any unit by serial or customer name, with its warranty state.
+// find any unit by serial or customer name, with its warranty state.
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import api from "../../api/client";

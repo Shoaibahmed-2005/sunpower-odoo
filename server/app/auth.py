@@ -1,4 +1,4 @@
-"""Authentication and permissions (Member B).
+"""Authentication and permissions.
 
 - Passwords are stored only as bcrypt hashes.
 - Login puts a signed JWT in an httpOnly cookie named "token" (JavaScript can never read it).

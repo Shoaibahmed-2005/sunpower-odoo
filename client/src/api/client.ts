@@ -1,6 +1,5 @@
 /**
  * API client with cookie-based auth and unified error toast handling.
- * Owner: C (BUILD_PLAN §9).
  */
 import axios from "axios";
 import { toast } from "../components/Toast";

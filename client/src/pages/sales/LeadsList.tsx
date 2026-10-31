@@ -1,4 +1,4 @@
-// Enquiries list (Member B): search by ref / name / phone, filter by stage, click a row to open it.
+// Enquiries list: search by ref / name / phone, filter by stage, click a row to open it.
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";

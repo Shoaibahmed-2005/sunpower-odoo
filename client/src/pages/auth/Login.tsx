@@ -1,6 +1,5 @@
 /**
  * SunPower Login page with role-based redirection and demo quick-login pills.
- * Owner: C (BUILD_PLAN §4, §9).
  */
 import { useState } from "react";
 import { useNavigate, Navigate, Link } from "react-router-dom";

@@ -1,4 +1,4 @@
-"""Member C's tests: quotations, payments, confirm gates, invoices. Owner: C (BUILD_PLAN §11)."""
+"""Quotations, payments, confirm gates and invoices."""
 from datetime import date
 import pytest
 from sqlalchemy import select

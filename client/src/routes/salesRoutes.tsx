@@ -1,4 +1,4 @@
-// Member B's routes (BUILD_PLAN §9). App.tsx (D) adds these inside <Layout> and wraps each in <RequirePerm perm>.
+// Sales routes. App.tsx adds these inside <Layout> and wraps each in <RequirePerm perm>.
 // The menu shows only entries with `menu` whose `perm` the user has.
 import type { ReactNode } from "react";
 import LeadsList from "../pages/sales/LeadsList";

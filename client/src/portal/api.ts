@@ -23,6 +23,11 @@ portalApi.interceptors.response.use(
   }
 );
 
+/** The server's message from our standard {error, field} body, or a fallback. */
+export function errorText(err: any, fallback: string): string {
+  return err?.response?.data?.error || fallback;
+}
+
 export interface CustomerAccountInfo {
   id: number;
   phone: string;
@@ -59,9 +64,14 @@ export interface CustomerQuotation {
   subsidy: number;
   netPayable: number;
   paid: number;
-  pending: number;
   balance: number;
-  status: string;
+  minAdvance: number;
+  status: "SENT" | "CONFIRMED";
+  acceptedName: string | null;
+  acceptedAt: string | null;
+  preferredDate: string | null;
+  onlinePaymentsEnabled: boolean;
+  job: { scheduledDate: string; technicianName: string | null; status: string } | null;
   lines: { id: number; name: string; qty: number; unitPrice: number }[];
   invoices: {
     id: number;
@@ -69,10 +79,19 @@ export interface CustomerQuotation {
     type: string;
     amount: number;
     status: string;
-    reference: string | null;
-    submittedByCustomer: boolean;
+    method: string | null;
     paidAt: string | null;
   }[];
+}
+
+export interface PaymentOrder {
+  keyId: string;
+  orderId: string;
+  amount: number; // paise
+  currency: string;
+  name: string;
+  description: string;
+  prefill: { name: string; contact: string };
 }
 
 export interface CustomerTicket {
@@ -136,8 +155,16 @@ export const portalService = {
 
   getQuotations: () => portalApi.get<CustomerQuotation[]>("/quotations"),
 
-  submitPayment: (quotationId: number, data: { amount: number; reference: string }) =>
-    portalApi.post(`/quotations/${quotationId}/payments`, data),
+  acceptQuotation: (quotationId: number, data: { name: string; agree: true; preferredDate?: string }) =>
+    portalApi.post(`/quotations/${quotationId}/accept`, data),
+
+  createOrder: (quotationId: number, data: { kind: "ADVANCE" | "FULL" | "PART"; amount?: number }) =>
+    portalApi.post<PaymentOrder>(`/quotations/${quotationId}/order`, data),
+
+  verifyPayment: (data: { razorpayOrderId: string; razorpayPaymentId: string; razorpaySignature: string }) =>
+    portalApi.post<{ success: boolean; invoiceRef?: string; amount?: number }>("/payments/verify", data),
+
+  markPaymentFailed: (orderId: string) => portalApi.post(`/payments/${orderId}/failed`),
 
   getTickets: () => portalApi.get<CustomerTicket[]>("/tickets"),
 
@@ -149,14 +176,19 @@ export const portalService = {
 
   getMessages: () => portalApi.get<MessageItem[]>("/messages"),
 
-  sendMessage: (data: { text: string; leadId?: number }) =>
+  sendMessage: (data: { text: string }) =>
     portalApi.post<MessageItem>("/messages", data),
 
   requestCallback: (data: { preferredTime?: string; note?: string }) =>
     portalApi.post<{ success: boolean; message: string }>("/callback", data),
 
-  submitEnquiry: (data: { monthlyBill: number; roofArea?: number; systemType?: string }) =>
-    portalApi.post<{ id: number; ref: string; message: string }>("/enquiry", data),
+  submitEnquiry: (data: {
+    address: string;
+    kw: number;
+    systemType: string;
+    monthlyBill: number;
+    roofArea?: number;
+  }) => portalApi.post<{ id: number; ref: string; message: string }>("/enquiry", data),
 
   getNotifications: () => portalApi.get<CustomerNotification[]>("/notifications"),
 };

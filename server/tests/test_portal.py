@@ -1,4 +1,4 @@
-"""Tests for Customer Portal (Member D / WP4-D).
+"""Customer portal: accounts, scoping, quotations, Razorpay payments, service requests.
 Runs on SQLite in-memory, completely isolated from Postgres.
 """
 from datetime import date, datetime, timedelta, timezone
@@ -254,23 +254,7 @@ def test_customer_payment_and_tickets(client: TestClient):
     assert q["netPayable"] == 200000
     assert q["balance"] == 200000
 
-    # Submit payment reference
-    r_pay = client.post(
-        f"/api/portal/quotations/{q['id']}/payments",
-        json={"amount": 50000, "reference": "UPI-REF-998877"},
-        cookies=cookies,
-    )
-    assert r_pay.status_code == 200
-    assert r_pay.json()["status"] == "PENDING"
-
-    # Second payment blocked while one is pending -> 409
-    r_pay2 = client.post(
-        f"/api/portal/quotations/{q['id']}/payments",
-        json={"amount": 20000, "reference": "UPI-REF-998878"},
-        cookies=cookies,
-    )
-    assert r_pay2.status_code == 409
-
+    # Online payment is tested in test_razorpay_* below
     # Create ticket for Ramesh's serial
     r_tkt = client.post(
         "/api/portal/tickets",
@@ -304,3 +288,155 @@ def test_portal_security_boundaries(client: TestClient):
     # 2. Customer cookie on staff API -> 401
     r_cust_on_staff = client.get("/api/leads", cookies={"token": cust_token})
     assert r_cust_on_staff.status_code == 401
+
+
+# ── Razorpay (gateway mocked: tests never call the real API) ─────────────────
+import hashlib
+import hmac
+
+from app.config import settings
+from app.routers import portal as portal_router
+
+KEY_SECRET = "test_secret_for_signatures"
+
+
+@pytest.fixture
+def rzp(monkeypatch):
+    """Fake Razorpay keys + order creation; returns the list of created orders."""
+    monkeypatch.setattr(settings, "razorpay_key_id", "rzp_test_dummy")
+    monkeypatch.setattr(settings, "razorpay_key_secret", KEY_SECRET)
+    created = []
+
+    def fake_order(amount_paise, receipt, notes):
+        order = {"id": f"order_test{len(created) + 1}", "amount": amount_paise, "receipt": receipt}
+        created.append(order)
+        return order
+
+    monkeypatch.setattr(portal_router, "create_razorpay_order", fake_order)
+    return created
+
+
+def _sign(order_id: str, payment_id: str) -> str:
+    return hmac.new(KEY_SECRET.encode(), f"{order_id}|{payment_id}".encode(), hashlib.sha256).hexdigest()
+
+
+def _login_ramesh(client):
+    return client.post("/api/portal/auth/login", json={"phone": "9822000010", "password": "sun123"}).cookies
+
+
+def test_razorpay_accept_then_pay_advance(client: TestClient, rzp):
+    cookies = _login_ramesh(client)
+    q = client.get("/api/portal/quotations", cookies=cookies).json()[0]
+    assert q["minAdvance"] == 50000  # 25% of 2,00,000 net payable
+
+    # order before accepting -> 409
+    assert client.post(f"/api/portal/quotations/{q['id']}/order", json={"kind": "ADVANCE"}, cookies=cookies).status_code == 409
+    # terms not ticked -> 400
+    assert client.post(f"/api/portal/quotations/{q['id']}/accept", json={"name": "Ramesh", "agree": False}, cookies=cookies).status_code == 400
+    r = client.post(f"/api/portal/quotations/{q['id']}/accept", json={"name": "Ramesh Kulkarni", "agree": True}, cookies=cookies)
+    assert r.status_code == 200
+    assert client.post(f"/api/portal/quotations/{q['id']}/accept", json={"name": "Ramesh Kulkarni", "agree": True}, cookies=cookies).status_code == 409
+
+    # PART outside advance..balance -> 400; amount is decided by the server
+    assert client.post(f"/api/portal/quotations/{q['id']}/order", json={"kind": "PART", "amount": 100}, cookies=cookies).status_code == 400
+    assert client.post(f"/api/portal/quotations/{q['id']}/order", json={"kind": "PART", "amount": 300000}, cookies=cookies).status_code == 400
+    order = client.post(f"/api/portal/quotations/{q['id']}/order", json={"kind": "ADVANCE", "amount": 1}, cookies=cookies).json()
+    assert order["amount"] == 50000 * 100 and order["keyId"] == "rzp_test_dummy"
+    assert "secret" not in str(order).lower()
+
+    # bad signature -> 400 and no invoice
+    bad = client.post("/api/portal/payments/verify", json={
+        "razorpayOrderId": order["orderId"], "razorpayPaymentId": "pay_fake123", "razorpaySignature": "0" * 64,
+    }, cookies=cookies)
+    assert bad.status_code == 400
+
+    # a fresh order + good signature -> exactly one PAID invoice, even if verify is called twice
+    order2 = client.post(f"/api/portal/quotations/{q['id']}/order", json={"kind": "ADVANCE"}, cookies=cookies).json()
+    body = {"razorpayOrderId": order2["orderId"], "razorpayPaymentId": "pay_real456",
+            "razorpaySignature": _sign(order2["orderId"], "pay_real456")}
+    assert client.post("/api/portal/payments/verify", json=body, cookies=cookies).status_code == 200
+    assert client.post("/api/portal/payments/verify", json=body, cookies=cookies).json()["alreadyRecorded"] is True
+
+    with TestSession() as db:
+        paid = db.query(Invoice).filter(Invoice.status == InvoiceStatus.PAID).all()
+        assert len(paid) == 1
+        assert paid[0].amount == 50000 and paid[0].method == "ONLINE" and paid[0].gateway_ref == "pay_real456"
+
+    q_after = client.get("/api/portal/quotations", cookies=cookies).json()[0]
+    assert q_after["paid"] == 50000 and q_after["balance"] == 150000
+
+
+def test_razorpay_rules(client: TestClient, rzp, monkeypatch):
+    cookies = _login_ramesh(client)
+    q = client.get("/api/portal/quotations", cookies=cookies).json()[0]
+    client.post(f"/api/portal/quotations/{q['id']}/accept", json={"name": "Ramesh Kulkarni", "agree": True}, cookies=cookies)
+
+    # another customer can't see or pay Ramesh's quotation -> 404
+    with TestSession() as db:
+        db.add(CustomerAccount(phone="9822000011", name="Sunita Desai", password_hash=hash_password(PASSWORD)))
+        db.commit()
+    sunita = client.post("/api/portal/auth/login", json={"phone": "9822000011", "password": "sun123"}).cookies
+    assert client.post(f"/api/portal/quotations/{q['id']}/order", json={"kind": "FULL"}, cookies=sunita).status_code == 404
+
+    # Sunita can't verify Ramesh's order either
+    order = client.post(f"/api/portal/quotations/{q['id']}/order", json={"kind": "FULL"}, cookies=cookies).json()
+    assert order["amount"] == 200000 * 100
+    body = {"razorpayOrderId": order["orderId"], "razorpayPaymentId": "pay_x12345",
+            "razorpaySignature": _sign(order["orderId"], "pay_x12345")}
+    assert client.post("/api/portal/payments/verify", json=body, cookies=sunita).status_code == 404
+
+    # DRAFT quotations are never shown to customers
+    with TestSession() as db:
+        db.query(Quotation).update({Quotation.status: QuoteStatus.DRAFT})
+        db.commit()
+    assert client.get("/api/portal/quotations", cookies=cookies).json() == []
+
+    # keys missing -> 503
+    monkeypatch.setattr(settings, "razorpay_key_secret", "")
+    with TestSession() as db:
+        db.query(Quotation).update({Quotation.status: QuoteStatus.SENT})
+        db.commit()
+    assert client.post(f"/api/portal/quotations/{q['id']}/order", json={"kind": "FULL"}, cookies=cookies).status_code == 503
+
+
+def test_portal_enquiry_needs_details_and_blocks_duplicates(client: TestClient):
+    with TestSession() as db:
+        db.add(CustomerAccount(phone="9811111111", name="New Customer", password_hash=hash_password(PASSWORD)))
+        db.query(Counter).filter(Counter.key == "ENQ").update({Counter.next: 3})  # fixture already used ENQ/0001-0002
+        db.commit()
+    cookies = client.post("/api/portal/auth/login", json={"phone": "9811111111", "password": "sun123"}).cookies
+    body = {"address": "7 Lake View, Pune", "kw": 3, "systemType": "ON_GRID", "monthlyBill": 3000}
+    r = client.post("/api/portal/enquiry", json=body, cookies=cookies)
+    assert r.status_code == 200 and r.json()["ref"].startswith("ENQ/")
+    assert client.post("/api/portal/enquiry", json=body, cookies=cookies).status_code == 409
+    assert client.post("/api/portal/enquiry", json={"monthlyBill": 3000}, cookies=cookies).status_code == 400
+
+
+def test_balance_after_installation_settles_the_due_invoice(client: TestClient, rzp):
+    cookies = _login_ramesh(client)
+    q = client.get("/api/portal/quotations", cookies=cookies).json()[0]
+    client.post(f"/api/portal/quotations/{q['id']}/accept", json={"name": "Ramesh Kulkarni", "agree": True}, cookies=cookies)
+    order = client.post(f"/api/portal/quotations/{q['id']}/order", json={"kind": "ADVANCE"}, cookies=cookies).json()
+    client.post("/api/portal/payments/verify", json={"razorpayOrderId": order["orderId"], "razorpayPaymentId": "pay_adv001",
+                "razorpaySignature": _sign(order["orderId"], "pay_adv001")}, cookies=cookies)
+
+    # Sales confirms: quotation CONFIRMED and the rest becomes a BALANCE invoice (DUE), as confirm_quotation does
+    with TestSession() as db:
+        quote = db.get(Quotation, q["id"])
+        quote.status = QuoteStatus.CONFIRMED
+        db.add(Invoice(ref="INV/0099", lead_id=quote.lead_id, quotation_id=quote.id, type=InvoiceType.BALANCE,
+                       amount=150000, status=InvoiceStatus.DUE))
+        db.commit()
+
+    # after booking the only option is the remaining balance, whatever the browser asks for
+    order2 = client.post(f"/api/portal/quotations/{q['id']}/order", json={"kind": "ADVANCE"}, cookies=cookies).json()
+    assert order2["amount"] == 150000 * 100
+    r = client.post("/api/portal/payments/verify", json={"razorpayOrderId": order2["orderId"], "razorpayPaymentId": "pay_bal001",
+                    "razorpaySignature": _sign(order2["orderId"], "pay_bal001")}, cookies=cookies)
+    assert r.status_code == 200 and r.json()["invoiceRef"] == "INV/0099"
+
+    with TestSession() as db:
+        invoices = db.query(Invoice).filter(Invoice.quotation_id == q["id"]).all()
+        assert len(invoices) == 2  # advance + the settled balance, no duplicate
+        assert all(i.status == InvoiceStatus.PAID for i in invoices)
+    assert client.get("/api/portal/quotations", cookies=cookies).json()[0]["balance"] == 0

@@ -11,6 +11,7 @@ import { inventoryRoutes } from "./routes/inventoryRoutes";
 import { fieldRoutes } from "./routes/fieldRoutes";
 import TechHome from "./pages/mobile/TechHome";
 import JobWorksheet from "./pages/mobile/JobWorksheet";
+import TicketVisit from "./pages/mobile/TicketVisit";
 import SurveyForm from "./pages/mobile/SurveyForm";
 import Login from "./pages/auth/Login";
 
@@ -101,6 +102,14 @@ export default function App() {
                 element={
                   <RequirePerm perm="jobs:mine">
                     <JobWorksheet />
+                  </RequirePerm>
+                }
+              />
+              <Route
+                path="/m/tickets/:id"
+                element={
+                  <RequirePerm perm="tickets:mine">
+                    <TicketVisit />
                   </RequirePerm>
                 }
               />

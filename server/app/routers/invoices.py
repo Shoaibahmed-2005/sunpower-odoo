@@ -1,4 +1,4 @@
-"""Invoices router. Owner: C (BUILD_PLAN §7).
+"""Invoices router.
 
 Endpoints:
 - GET /api/invoices: list all invoices with lead name, quotation/ticket ref, type, amount, status

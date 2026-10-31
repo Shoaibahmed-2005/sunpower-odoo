@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../../components/Logo";
 import { usePortal } from "../../portal/PortalContext";
-import { portalService } from "../../portal/api";
+import { portalService, errorText } from "../../portal/api";
 import { Phone, Lock, User, KeyRound, ArrowRight, ArrowLeft } from "lucide-react";
 
 export default function CustomerSignup() {
@@ -31,7 +31,7 @@ export default function CustomerSignup() {
       }
       setStep(2);
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Failed to send OTP code");
+      setError(errorText(err, "Failed to send OTP code"));
     } finally {
       setLoading(false);
     }
@@ -52,7 +52,7 @@ export default function CustomerSignup() {
       login(res.data.account);
       navigate("/portal/home");
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Verification failed");
+      setError(errorText(err, "Verification failed"));
     } finally {
       setLoading(false);
     }

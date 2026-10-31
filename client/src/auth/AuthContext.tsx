@@ -1,6 +1,5 @@
 /**
  * Authentication and authorization context.
- * Owner: C (BUILD_PLAN §4, §9).
  */
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import api from "../api/client";
@@ -22,7 +21,7 @@ const ACCESS: Record<string, string[]> = {
     "jobs:read",
     "users:read",
   ],
-  TECHNICIAN: ["jobs:mine", "surveys:read", "surveys:submit"],
+  TECHNICIAN: ["jobs:mine", "tickets:mine", "surveys:read", "surveys:submit"],
   WAREHOUSE: [
     "dashboard:read",
     "stock:read",

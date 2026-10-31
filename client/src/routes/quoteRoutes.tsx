@@ -1,6 +1,5 @@
 /**
  * Quotation and Invoice routes.
- * Owner: C (BUILD_PLAN §3, §9).
  */
 import { AppRoute } from "../App";
 import QuotationList from "../pages/quotes/QuotationList";

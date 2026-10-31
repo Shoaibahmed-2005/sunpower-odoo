@@ -1,4 +1,4 @@
-"""Date helper shared by stock validate and the seed. Owner: A."""
+"""Date helper shared by stock validate and the seed."""
 import calendar
 from datetime import date
 

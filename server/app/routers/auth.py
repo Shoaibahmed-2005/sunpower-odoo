@@ -1,4 +1,4 @@
-"""Login, logout and "who am I" (Member B)."""
+"""Login, logout and "who am I"."""
 from fastapi import APIRouter, Depends, Response
 from pydantic import Field
 from sqlalchemy import select

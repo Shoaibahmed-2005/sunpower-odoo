@@ -1,6 +1,6 @@
-"""Member A's gates: scan, unscan, validate, stock adjust, warranty dates, profit, receipts. Each test starts from a fresh seed.
+"""Inventory gates: scan, unscan, validate, stock adjust, warranty dates, profit, receipts. Each test starts from a fresh seed.
 
-Run from server/: uv run pytest app/tests/test_inventory.py   (uses DATABASE_URL, which it resets)
+Run from server/: uv run pytest tests/test_inventory.py   (uses the throwaway test database from conftest.py)
 """
 import threading
 from datetime import date

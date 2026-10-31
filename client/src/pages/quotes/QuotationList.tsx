@@ -1,6 +1,5 @@
 /**
  * Quotation List page with status filtering and search.
- * Owner: C (BUILD_PLAN §7, §9, §11).
  */
 import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";

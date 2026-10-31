@@ -1,4 +1,4 @@
-"""Products, packages, stock, dispatches (scan / unscan / validate), serial lookup, receipts. Owner: A.
+"""Products, packages, stock, dispatches (scan / unscan / validate), serial lookup, receipts.
 
 Paths are written in full under prefix "/api". Business rules live in services/stock.py;
 every write endpoint here calls the service, then commits once.

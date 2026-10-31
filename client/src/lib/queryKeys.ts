@@ -1,6 +1,5 @@
 /**
  * Central query keys definition for TanStack React Query.
- * Owner: C (BUILD_PLAN §9).
  */
 export const qk = {
   me: ["me"],
@@ -22,6 +21,7 @@ export const qk = {
   myJobs: ["jobs", "mine"],
   job: (id: number) => ["job", id],
   tickets: ["tickets"],
+  myTickets: ["tickets", "mine"],
   ticket: (id: number) => ["ticket", id],
   lookup: (q: string) => ["lookup", q],
   profit: (from: string, to: string) => ["reports", "profit", from, to],

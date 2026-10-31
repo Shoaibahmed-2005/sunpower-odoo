@@ -25,7 +25,9 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
     first = exc.errors()[0]
     loc = first.get("loc") or []
     field = str(loc[-1]) if loc and loc[-1] != "body" else None
-    return JSONResponse(status_code=400, content=error_body(first.get("msg", "Invalid input"), field))
+    # our own validators raise ValueError; drop Pydantic's "Value error, " prefix so users see just the message
+    message = first.get("msg", "Invalid input").removeprefix("Value error, ")
+    return JSONResponse(status_code=400, content=error_body(message, field))
 
 
 async def http_error_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:

@@ -4,6 +4,7 @@ import { usePortal } from "../../portal/PortalContext";
 import {
   CustomerNotification,
   CustomerOverview,
+  errorText,
   portalService,
 } from "../../portal/api";
 import {
@@ -27,9 +28,7 @@ export default function CustomerHome() {
 
   // New enquiry modal state
   const [enquiryModal, setEnquiryModal] = useState(false);
-  const [monthlyBill, setMonthlyBill] = useState(4000);
-  const [roofArea, setRoofArea] = useState(500);
-  const [systemType, setSystemType] = useState("ON_GRID");
+  const [enquiryError, setEnquiryError] = useState<string | null>(null);
   const [enquirySuccess, setEnquirySuccess] = useState<string | null>(null);
   const [submittingEnquiry, setSubmittingEnquiry] = useState(false);
 
@@ -51,22 +50,28 @@ export default function CustomerHome() {
     fetchData();
   }, []);
 
-  const handleEnquirySubmit = async (e: React.FormEvent) => {
+  // Uncontrolled form: read all values once, on submit. The server re-validates everything.
+  const handleEnquirySubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
+    const data = new FormData(e.currentTarget);
+    const roofArea = Number(data.get("roofArea"));
+    setEnquiryError(null);
     setSubmittingEnquiry(true);
     try {
       const res = await portalService.submitEnquiry({
-        monthlyBill,
-        roofArea,
-        systemType,
+        address: String(data.get("address")).trim(),
+        kw: Number(data.get("kw")),
+        systemType: String(data.get("systemType")),
+        monthlyBill: Number(data.get("monthlyBill")),
+        ...(roofArea ? { roofArea } : {}),
       });
       setEnquirySuccess(res.data.message);
       setTimeout(() => {
         setEnquiryModal(false);
         setEnquirySuccess(null);
       }, 2500);
-    } catch {
-      alert("Failed to submit enquiry");
+    } catch (err) {
+      setEnquiryError(errorText(err, "Failed to submit enquiry"));
     } finally {
       setSubmittingEnquiry(false);
     }
@@ -135,7 +140,7 @@ export default function CustomerHome() {
         >
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-              Pending Invoices
+              Invoices Due
             </span>
             <div className="p-2 rounded-lg bg-amber-50 text-amber-600 group-hover:bg-amber-100 transition-colors">
               <FileText className="w-5 h-5" />
@@ -297,6 +302,38 @@ export default function CustomerHome() {
               </div>
             ) : (
               <form onSubmit={handleEnquirySubmit} className="space-y-4">
+                {enquiryError && (
+                  <p className="p-2 text-xs rounded-lg bg-rose-50 border border-rose-200 text-rose-700">{enquiryError}</p>
+                )}
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    Installation Address
+                  </label>
+                  <input
+                    name="address"
+                    required
+                    minLength={5}
+                    maxLength={300}
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
+                    System Size Needed (kW)
+                  </label>
+                  <input
+                    name="kw"
+                    type="number"
+                    min={1}
+                    max={10}
+                    step={1}
+                    defaultValue={3}
+                    required
+                    className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
+                  />
+                </div>
+
                 <div>
                   <label className="block text-xs font-semibold text-slate-700 uppercase tracking-wider mb-1">
                     Monthly Electricity Bill (₹)
@@ -305,8 +342,8 @@ export default function CustomerHome() {
                     type="number"
                     min={500}
                     step={100}
-                    value={monthlyBill}
-                    onChange={(e) => setMonthlyBill(Number(e.target.value))}
+                    name="monthlyBill"
+                    defaultValue={4000}
                     className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
                     required
                   />
@@ -319,8 +356,8 @@ export default function CustomerHome() {
                   <input
                     type="number"
                     min={50}
-                    value={roofArea}
-                    onChange={(e) => setRoofArea(Number(e.target.value))}
+                    name="roofArea"
+                    defaultValue={500}
                     className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 font-mono"
                   />
                 </div>
@@ -330,8 +367,8 @@ export default function CustomerHome() {
                     System Preference
                   </label>
                   <select
-                    value={systemType}
-                    onChange={(e) => setSystemType(e.target.value)}
+                    name="systemType"
+                    defaultValue="ON_GRID"
                     className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
                   >
                     <option value="ON_GRID">On-Grid (Subsidy Eligible)</option>

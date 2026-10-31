@@ -1,4 +1,4 @@
-"""Roof surveys: technician submits from the phone, Sales approves or rejects (Member B)."""
+"""Roof surveys: technician submits from the phone, Sales approves or rejects."""
 from datetime import datetime, timezone
 from typing import Literal
 
@@ -29,9 +29,9 @@ class SubmitIn(ApiModel):
     @field_validator("photos")
     @classmethod
     def only_our_uploads(cls, photos: list[str]) -> list[str]:
-        # accept only URLs returned by our own /api/uploads, never arbitrary links or javascript: URLs
+        # accept only URLs returned by our own /api/uploads (images in the DB, or old files), never outside links
         for url in photos:
-            if not url.startswith("/uploads/") or ".." in url or len(url) > 200:
+            if not url.startswith(("/api/images/", "/uploads/")) or ".." in url or len(url) > 200:
                 raise ValueError("Photos must be uploaded through the app")
         return photos
 
@@ -123,7 +123,7 @@ def get_survey(survey_id: int, user: User = Depends(require_perm("surveys:read")
 def submit_survey(survey_id: int, body: SubmitIn, user: User = Depends(require_perm("surveys:submit")),
                   db: Session = Depends(get_db)):
     """surveys:submit (assigned technician, or Admin). SCHEDULED → SUBMITTED; 409 if already submitted.
-    Limits: tilt 0-60°, cable 1-150 m, area > 0, photos only from /uploads."""
+    Limits: tilt 0-60°, cable 1-150 m, area > 0, photos only from /api/images or /uploads."""
     try:
         survey = load_survey(db, survey_id, user, lock=True)
         assert_transition("survey", survey.status, SurveyStatus.SUBMITTED)

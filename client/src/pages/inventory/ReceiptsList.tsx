@@ -1,4 +1,4 @@
-// Owned by A — goods arriving from vendors.
+// goods arriving from vendors.
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "../../api/client";

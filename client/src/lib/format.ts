@@ -1,6 +1,5 @@
 /**
  * Indian Rupee and date formatting helpers.
- * Owner: C (BUILD_PLAN §9).
  */
 
 export function formatINR(amount: number): string {

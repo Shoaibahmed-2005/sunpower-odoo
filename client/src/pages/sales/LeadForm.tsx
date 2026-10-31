@@ -1,4 +1,4 @@
-// Enquiry form (Member B): stage bar, qualifying call, schedule survey, the quote gate, mark lost.
+// Enquiry form: stage bar, qualifying call, schedule survey, the quote gate, mark lost.
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useParams } from "react-router-dom";

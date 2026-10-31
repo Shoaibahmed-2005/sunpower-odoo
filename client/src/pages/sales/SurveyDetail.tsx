@@ -1,4 +1,4 @@
-// Survey detail (Member B): Sales reviews the technician's measurements and approves or rejects.
+// Survey detail: Sales reviews the technician's measurements and approves or rejects.
 // Approving is what unlocks "Create quotation" on the enquiry.
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";

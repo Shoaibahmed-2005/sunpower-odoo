@@ -1,6 +1,6 @@
 /**
  * Quotation Detail and Form page.
- * Owner: C (BUILD_PLAN §7, §8.2, §11).
+ *
  *
  * Enforces:
  * - Package switch recalculates lines while unpaid.
@@ -49,6 +49,7 @@ interface InvoiceItem {
   type: string;
   amount: number;
   status: string;
+  method?: string | null;
   createdAt: string;
   paidAt?: string | null;
 }
@@ -79,6 +80,10 @@ interface QuotationDetailData {
   invoices: InvoiceItem[];
   createdAt: string;
   confirmedAt?: string | null;
+  acceptedName?: string | null;
+  acceptedAt?: string | null;
+  preferredDate?: string | null;
+  onlinePaid: number;
 }
 
 interface PackageOption {
@@ -201,7 +206,7 @@ export default function QuotationForm() {
     onSuccess: () => {
       toast.success("Order confirmed! Job and dispatch created.");
       setShowConfirmModal(false);
-      // Invalidate related keys per §9
+      // Invalidate everything this change affects
       queryClient.invalidateQueries({ queryKey: qk.quotation(Number(id)) });
       queryClient.invalidateQueries({ queryKey: qk.quotations });
       queryClient.invalidateQueries({ queryKey: qk.leads });
@@ -257,6 +262,9 @@ export default function QuotationForm() {
     if (technicians.length > 0 && techId === "") {
       setTechId(technicians[0].id);
     }
+    // the customer's preferred installation date from the portal, if it isn't in the past
+    const today = new Date().toISOString().split("T")[0];
+    if (quote.preferredDate && quote.preferredDate >= today) setSchedDate(quote.preferredDate);
     setShowConfirmModal(true);
   };
 
@@ -309,7 +317,7 @@ export default function QuotationForm() {
 
             {quote.balance > 0 && quote.status !== "CANCELLED" && (
               <Button variant="primary" onClick={handleOpenPayment}>
-                <CreditCard className="w-4 h-4 mr-1.5" /> Record Payment
+                <CreditCard className="w-4 h-4 mr-1.5" /> Record Offline Payment
               </Button>
             )}
 
@@ -345,6 +353,23 @@ export default function QuotationForm() {
           </div>
         </div>
       </div>
+
+      {/* Portal acceptance + online payment (customer portal) */}
+      {(quote.acceptedAt || quote.onlinePaid > 0) && quote.status !== "CONFIRMED" && (
+        <div className="bg-info/10 border border-info/30 rounded-card p-4 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+          {quote.acceptedAt && (
+            <span className="text-text">
+              Accepted by <strong>{quote.acceptedName}</strong> on {formatDate(quote.acceptedAt)}
+              {quote.preferredDate && <> · preferred installation {formatDate(quote.preferredDate)}</>}
+            </span>
+          )}
+          {quote.onlinePaid > 0 && (
+            <span className="px-2.5 py-1 rounded-full bg-success/15 text-success font-semibold text-xs">
+              Paid online {formatINR(quote.onlinePaid)} · ready to confirm
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Confirmed Order Banner */}
       {quote.status === "CONFIRMED" && (
@@ -571,6 +596,7 @@ export default function QuotationForm() {
                       <span className="px-2 py-0.5 rounded bg-bg border border-border">
                         {inv.type}
                       </span>
+                      {inv.method && <span className="ml-1.5 text-muted">{inv.method === "ONLINE" ? "Razorpay" : inv.method}</span>}
                     </td>
                     <td className="px-3 py-2.5 text-right font-mono font-medium text-text">
                       {formatINR(inv.amount)}

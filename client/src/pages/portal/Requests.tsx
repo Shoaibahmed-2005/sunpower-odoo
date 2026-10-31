@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useLocation } from "react-router-dom";
-import { CustomerTicket, DeliveredProduct, portalService } from "../../portal/api";
+import { CustomerTicket, DeliveredProduct, portalService, errorText } from "../../portal/api";
 import { Wrench, ShieldCheck, CheckCircle2, Clock, Plus, AlertCircle, X } from "lucide-react";
 
 export default function CustomerRequests() {
@@ -52,7 +52,7 @@ export default function CustomerRequests() {
       setIssue("");
       await fetchData();
     } catch (err: any) {
-      setError(err.response?.data?.detail || "Failed to create service request");
+      setError(errorText(err, "Failed to create service request"));
     } finally {
       setSubmitting(false);
     }
@@ -63,7 +63,7 @@ export default function CustomerRequests() {
       await portalService.confirmTicket(ticketId);
       await fetchData();
     } catch (err: any) {
-      alert(err.response?.data?.detail || "Failed to confirm resolution");
+      alert(errorText(err, "Failed to confirm resolution"));
     }
   };
 

@@ -2,7 +2,7 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Logo from "../../components/Logo";
 import { usePortal } from "../../portal/PortalContext";
-import { portalService } from "../../portal/api";
+import { portalService, errorText } from "../../portal/api";
 import { Lock, Phone, ArrowRight, ShieldCheck, UserPlus } from "lucide-react";
 
 export default function CustomerLogin() {
@@ -24,7 +24,7 @@ export default function CustomerLogin() {
       login(res.data.account);
       navigate("/portal/home");
     } catch (err: any) {
-      const msg = err.response?.data?.detail || "Invalid phone number or password";
+      const msg = errorText(err, "Invalid phone number or password");
       setError(msg);
     } finally {
       setLoading(false);

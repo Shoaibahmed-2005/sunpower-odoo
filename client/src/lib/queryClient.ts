@@ -1,6 +1,5 @@
 /**
  * React Query Client configuration with 5s polling for multi-user live sync.
- * Owner: C (BUILD_PLAN §9).
  */
 import { QueryClient } from "@tanstack/react-query";
 

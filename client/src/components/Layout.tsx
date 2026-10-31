@@ -144,7 +144,7 @@ export default function Layout() {
         <div className="max-w-7xl mx-auto h-full px-4 sm:px-6 flex items-center justify-between gap-4">
           {/* Left: Brand Logo */}
           <div className="flex items-center gap-6 shrink-0">
-            <Link to={landing} className="flex items-center select-none" title="Kiran Solar">
+            <Link to={landing} className="flex items-center select-none" title="SunPower">
               <Logo variant="full" size="sm" />
             </Link>
           </div>

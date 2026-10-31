@@ -1,4 +1,4 @@
-"""State transition maps and validator. Owner: C (BUILD_PLAN §6)."""
+"""State transition maps and validator."""
 from app.errors import ApiError
 
 TRANSITIONS = {

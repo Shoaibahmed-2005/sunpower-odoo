@@ -1,4 +1,4 @@
-"""Human-readable references like ENQ/0007 (Member B)."""
+"""Human-readable references like ENQ/0007."""
 from sqlalchemy import update
 from sqlalchemy.orm import Session
 

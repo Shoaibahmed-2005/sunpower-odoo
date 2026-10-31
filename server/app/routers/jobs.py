@@ -1,5 +1,5 @@
 """Jobs endpoints — installation job list, detail, start, finish.
-Owner: D. Gates: no start before dispatch DONE; no finish without signature + photo.
+Gates: no start before dispatch DONE; no finish without signature + photo.
 """
 
 from datetime import datetime, timezone

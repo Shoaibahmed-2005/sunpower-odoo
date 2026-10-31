@@ -1,4 +1,4 @@
-// Owned by A — dispatch form: scan serials (USB scanner = types + Enter), unscan, validate, warranty banner.
+// dispatch form: scan serials (USB scanner = types + Enter), unscan, validate, warranty banner.
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";

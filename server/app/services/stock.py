@@ -1,9 +1,9 @@
-"""Stock rules: scan, unscan, validate a dispatch, reserved stock, manual adjust, receipts. Owner: A.
+"""Stock rules: scan, unscan, validate a dispatch, reserved stock, manual adjust, receipts.
 
 These functions only change the session; they never commit. The router commits once at the end,
 so if any guard raises, nothing from that request is saved (the session closes and rolls back).
 """
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
@@ -109,7 +109,7 @@ def unscan_serial(db: Session, dispatch_id: int, serial: str) -> None:
 
 
 def validate_dispatch(db: Session, dispatch_id: int) -> None:
-    """Ship the kit (BUILD_PLAN §8.1): stock goes down, serials are delivered, warranties start."""
+    """Ship the kit: stock goes down, serials are delivered, warranties start."""
     dispatch = get_dispatch(db, dispatch_id, lock=True)
     assert_transition("dispatch", dispatch.status.value, "DONE")
     need = sum(required_serial_qty(db, dispatch).values())
@@ -131,7 +131,7 @@ def validate_dispatch(db: Session, dispatch_id: int) -> None:
             raise ApiError(409, f"Not enough stock for {line.product.code}")
 
     now = datetime.now(timezone.utc)
-    today = now.date()
+    today = date.today()
     for unit in picked:
         delivered = db.execute(
             update(SerialUnit)

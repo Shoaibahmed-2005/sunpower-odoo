@@ -4,10 +4,14 @@ node_modules
 server/uploads/*
 !server/uploads/.gitkeep
 __pycache__
+.pytest_cache
+.vite
 dist
 .DS_Store
 *.pyc
 
 *.db
-server/chrome_temp_profile
-server/chrome_enquire_profile
+server/chrome_*
+
+# team-internal notes and plans (kept locally, not part of the submission)
+_internal/

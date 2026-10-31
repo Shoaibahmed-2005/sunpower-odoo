@@ -1,4 +1,4 @@
-// Owned by A — record goods on the way from a vendor (stock changes only when received).
+// record goods on the way from a vendor (stock changes only when received).
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";

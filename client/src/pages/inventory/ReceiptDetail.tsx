@@ -1,4 +1,4 @@
-// Owned by A — receive a receipt: scan each new serial (Enter adds it), then Receive counts everything in.
+// receive a receipt: scan each new serial (Enter adds it), then Receive counts everything in.
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useParams } from "react-router-dom";

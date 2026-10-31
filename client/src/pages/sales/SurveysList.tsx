@@ -1,4 +1,4 @@
-// Surveys list (Member B): Sales sees every survey and filters to "Submitted" to approve them.
+// Surveys list: Sales sees every survey and filters to "Submitted" to approve them.
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";

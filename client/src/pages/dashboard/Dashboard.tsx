@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  IndianRupee,
   Receipt,
   Clock,
   Wrench,
@@ -10,12 +9,7 @@ import {
   TrendingUp,
   Share2,
   Calendar,
-  CheckCircle,
-  ArrowUpRight,
   ChevronRight,
-  ClipboardCheck,
-  Truck,
-  Sparkles,
 } from "lucide-react";
 import {
   BarChart,
@@ -32,13 +26,25 @@ import { useAuth } from "../../auth/AuthContext";
 import DashboardPage from "../../components/DashboardPage";
 import Card from "../../components/Card";
 import Button from "../../components/Button";
-import Badge from "../../components/Badge";
 import { toast } from "../../components/Toast";
 
 type Period = "today" | "week" | "month";
 
+interface ProfitRow {
+  jobId: number;
+  jobRef: string;
+  leadName: string;
+  finishedAt: string | null;
+  revenue: number;
+  partsCost: number;
+  labourCost: number;
+  repairCost: number;
+  profit: number;
+  marginPct: number;
+}
+
 export default function Dashboard() {
-  const { user } = useAuth();
+  const { can } = useAuth();
   const navigate = useNavigate();
   const [period, setPeriod] = useState<Period>("today");
 
@@ -61,42 +67,43 @@ export default function Dashboard() {
     }
   };
 
-  // Safe fallback counts from backend or default seed context
-  const money = dashboardData?.money || { booked: 585000, collected: 245000, due: 340000 };
-  const jobs = dashboardData?.jobs || { scheduled: 8, inProgress: 3, late: 1 };
-  const dispatches = dashboardData?.dispatches || { ready: 4 };
-  const surveys = dashboardData?.surveys || { toApprove: 2 };
-  const tickets = dashboardData?.tickets || { open: 5, underWarranty: 3, billable: 2 };
-  const quotes = dashboardData?.quotes || { sent: 6, awaitingPayment: 4 };
-  const leads = dashboardData?.leads || { new: 9, toCall: 5 };
+  // Live counts from /api/dashboard (0 when the role can't see a group)
+  const money = dashboardData?.money || { booked: 0, collected: 0, due: 0 };
+  const jobs = dashboardData?.jobs || { scheduled: 0, inProgress: 0, late: 0 };
+  const dispatches = dashboardData?.dispatches || { ready: 0 };
+  const surveys = dashboardData?.surveys || { toApprove: 0 };
+  const tickets = dashboardData?.tickets || { open: 0, underWarranty: 0, billable: 0 };
+  const quotes = dashboardData?.quotes || { sent: 0, awaitingPayment: 0 };
+  const leads = dashboardData?.leads || { new: 0, toCall: 0 };
 
-  // Sample weekly completions data for Recharts bar chart
-  const completionsData = [
-    { day: "Mon", installs: 2 },
-    { day: "Tue", installs: 3 },
-    { day: "Wed", installs: 1 },
-    { day: "Thu", installs: 4 },
-    { day: "Fri", installs: 2 },
-    { day: "Sat", installs: 3 },
-    { day: "Sun", installs: 1 },
-  ];
+  // Finished jobs with their profit (Admin only), from the same report as the Profit page
+  const { data: profitRows = [] } = useQuery({
+    queryKey: ["reports", "profit"],
+    queryFn: () => api.get<ProfitRow[]>("/reports/profit").then((r) => r.data),
+    enabled: can("reports:read"),
+    refetchInterval: 5000,
+  });
+  const latestJobs = profitRows.slice(0, 5); // newest finished first
 
-  // Top 5 profit jobs (calculated per §8.3 contract)
-  const topProfitJobs = [
-    { ref: "JOB/0001", customer: "Ramesh Sharma", kw: 5.0, revenue: 315000, cost: 238000, profit: 77000, margin: 24 },
-    { ref: "JOB/0002", customer: "Pooja Hegde", kw: 3.0, revenue: 195000, cost: 142000, profit: 53000, margin: 27 },
-    { ref: "JOB/0003", customer: "Sunita Desai", kw: 4.0, revenue: 260000, cost: 205000, profit: 55000, margin: 21 },
-    { ref: "JOB/0004", customer: "Karan Johar", kw: 3.0, revenue: 195000, cost: 155000, profit: 40000, margin: 20 },
-    { ref: "JOB/0005", customer: "Ramesh Kulkarni", kw: 5.0, revenue: 310000, cost: 345000, profit: -35000, margin: -11 }, // loss-making demo job (§8.3)
-  ];
+  // Installs finished on each of the last 7 days
+  const completionsData = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - i));
+    const key = d.toISOString().slice(0, 10);
+    return {
+      day: d.toLocaleDateString("en-IN", { weekday: "short" }),
+      installs: profitRows.filter((r) => r.finishedAt?.slice(0, 10) === key).length,
+    };
+  });
+  const completedThisWeek = completionsData.reduce((sum, d) => sum + d.installs, 0);
 
-  // Pipeline funnel steps
+  // Work waiting at each stage right now
   const pipeline = [
-    { stage: "Enquiries", count: leads.new + leads.toCall || 14, to: "/leads" },
-    { stage: "Surveyed", count: surveys.toApprove || 6, to: "/surveys" },
-    { stage: "Quoted", count: quotes.sent || 8, to: "/quotations" },
-    { stage: "Confirmed", count: dispatches.ready || 4, to: "/dispatches" },
-    { stage: "Installed", count: jobs.inProgress + 2 || 5, to: "/jobs" },
+    { stage: "Enquiries to call", count: leads.toCall, to: "/leads" },
+    { stage: "Surveys to approve", count: surveys.toApprove, to: "/surveys" },
+    { stage: "Quotes sent", count: quotes.sent, to: "/quotations" },
+    { stage: "Dispatches ready", count: dispatches.ready, to: "/dispatches" },
+    { stage: "Installs in progress", count: jobs.inProgress, to: "/jobs" },
   ];
   const maxPipelineCount = Math.max(...pipeline.map((p) => p.count), 1);
 
@@ -170,8 +177,7 @@ export default function Dashboard() {
           </div>
         </div>
         <p className="text-[11px] text-muted mt-2 border-t border-border/60 pt-1.5 flex items-center justify-between">
-          <span>Paid advance & full invoices</span>
-          <span className="text-success font-semibold">100% Verified</span>
+          <span>All paid invoices in the period</span>
         </p>
       </Card>
 
@@ -341,7 +347,7 @@ export default function Dashboard() {
         </Card>
 
         {/* 3. Sales Pipeline Funnel Card */}
-        <Card title="Sales Pipeline Conversion Funnel" icon={TrendingUp}>
+        <Card title="Work Waiting at Each Stage" icon={TrendingUp}>
           <div className="space-y-4 pt-1">
             {pipeline.map((item) => {
               const widthPct = Math.max(
@@ -360,7 +366,7 @@ export default function Dashboard() {
                       {item.stage}
                     </span>
                     <span className="font-mono text-muted group-hover:text-primary font-bold">
-                      {item.count} orders
+                      {item.count}
                     </span>
                   </div>
                   <div className="w-full bg-surface-2 h-4 rounded-full overflow-hidden border border-border/60">
@@ -376,11 +382,12 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* 4. Profit Per Job & Weekly Installs Graph */}
+      {/* 4. Profit Per Job & Weekly Installs Graph (Admin only: needs reports:read) */}
+      {can("reports:read") && (
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Profit Per Job Table (Top 5) */}
         <div className="lg:col-span-2">
-          <Card title="Profit Per Job (Top 5 Audited)" icon={Receipt}>
+          <Card title="Profit Per Job (latest finished)" icon={Receipt}>
             <div className="overflow-x-auto">
               <table className="w-full border-collapse text-left text-sm">
                 <thead>
@@ -394,27 +401,31 @@ export default function Dashboard() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border/60">
-                  {topProfitJobs.map((j) => {
+                  {latestJobs.length === 0 && (
+                    <tr>
+                      <td colSpan={6} className="py-6 text-center text-muted text-sm">
+                        No finished installations yet.
+                      </td>
+                    </tr>
+                  )}
+                  {latestJobs.map((j) => {
                     const isNegative = j.profit < 0;
 
                     return (
                       <tr
-                        key={j.ref}
-                        onClick={() => navigate("/jobs")}
+                        key={j.jobId}
+                        onClick={() => navigate(`/jobs/${j.jobId}`)}
                         className="hover:bg-surface-2/40 cursor-pointer transition-colors"
                       >
                         <td className="py-2.5 px-3 font-mono text-[13px] font-semibold text-primary">
-                          {j.ref}
+                          {j.jobRef}
                         </td>
-                        <td className="py-2.5 px-3 font-medium text-text">
-                          {j.customer}{" "}
-                          <span className="text-xs text-muted">({j.kw} kW)</span>
-                        </td>
+                        <td className="py-2.5 px-3 font-medium text-text">{j.leadName}</td>
                         <td className="py-2.5 px-3 text-right tabular-nums">
                           {formatINR(j.revenue)}
                         </td>
                         <td className="py-2.5 px-3 text-right tabular-nums text-muted">
-                          {formatINR(j.cost)}
+                          {formatINR(j.partsCost + j.labourCost + j.repairCost)}
                         </td>
                         <td
                           className={`py-2.5 px-3 text-right tabular-nums font-bold ${
@@ -428,7 +439,7 @@ export default function Dashboard() {
                             isNegative ? "text-danger" : "text-text"
                           }`}
                         >
-                          {j.margin}%
+                          {j.marginPct}%
                         </td>
                       </tr>
                     );
@@ -437,7 +448,10 @@ export default function Dashboard() {
               </table>
             </div>
             <p className="text-[11px] text-muted mt-3 pt-2 border-t border-border/60">
-              * Per §8.3: Job profit deducts hardware cost, field labour hours, and any resolved free warranty repair costs on delivered serials.
+              Profit = revenue − parts − field labour (hours × rate) − free warranty repairs on the job's serials.{" "}
+              <Link to="/reports/profit" className="text-primary font-semibold hover:underline">
+                Full report
+              </Link>
             </p>
           </Card>
         </div>
@@ -446,7 +460,7 @@ export default function Dashboard() {
         <div className="lg:col-span-1">
           <Card title="Completions by Day" icon={Calendar}>
             <p className="text-xs text-muted mb-3">
-              Rooftop installs finished in selected period
+              Installations finished in the last 7 days
             </p>
             <div className="h-56 w-full">
               <ResponsiveContainer width="100%" height="100%">
@@ -467,12 +481,13 @@ export default function Dashboard() {
               </ResponsiveContainer>
             </div>
             <div className="flex items-center justify-between text-xs text-muted pt-3 border-t border-border/60 mt-2">
-              <span>Total in period:</span>
-              <strong className="text-text font-bold">16 Completed</strong>
+              <span>Last 7 days:</span>
+              <strong className="text-text font-bold">{completedThisWeek} completed</strong>
             </div>
           </Card>
         </div>
       </div>
+      )}
     </DashboardPage>
   );
 }

@@ -1,4 +1,4 @@
-"""`npm run reset` (= python -m app.seed): drop every table, recreate them, insert the demo data (BUILD_PLAN §10).
+"""`npm run reset` (= python -m app.seed): drop every table, recreate them, insert the demo data.
 
 Master data (users, products, packages, serial stock) + one customer in every demo state.
 The seed writes rows directly: it uses no router or service, so it runs even before other members' files exist.

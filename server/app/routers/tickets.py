@@ -1,5 +1,5 @@
 """Tickets endpoints — lookup, list, create, transition (assign/resolve/close).
-Owner: D. Gates: close needs customerConfirmed; resolve creates REPAIR invoice if not under warranty.
+Gates: close needs customerConfirmed; resolve creates REPAIR invoice if not under warranty.
 """
 
 from datetime import date, datetime, timezone
@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
 from app.db import get_db
-from app.auth import require_perm
+from app.auth import get_current_user, has_perm, require_perm
 from app.errors import ApiError
 from app.schemas.base import ApiModel
 from app.transitions import assert_transition
@@ -41,6 +41,7 @@ class TicketListItem(ApiModel):
     id: int
     ref: str
     lead_name: str
+    lead_address: str | None = None
     serial: str | None
     issue: str
     under_warranty: bool
@@ -96,6 +97,50 @@ class TransitionRequest(ApiModel):
 
 
 # ── Helpers ───────────────────────────────────────────────────
+
+# A technician (perm tickets:mine) may only do the field steps on tickets assigned to him.
+# Assigning and closing stay with Support (tickets:write) / the customer's confirmation.
+TECH_STEPS = {"IN_REPAIR", "RESOLVED"}
+
+
+def _readable_ticket(db: Session, user, ticket_id: int) -> Ticket:
+    """Support/Admin read any ticket; a technician only his own (403 otherwise)."""
+    ticket = db.get(Ticket, ticket_id)
+    if not ticket:
+        raise ApiError(404, "Ticket not found")
+    if has_perm(user, "tickets:read"):
+        return ticket
+    if has_perm(user, "tickets:mine") and ticket.technician_id == user.id:
+        return ticket
+    raise ApiError(403, "You don't have permission to do this")
+
+
+def _list_query(db: Session):
+    return (
+        db.query(Ticket, Lead.name, Lead.address, User.name, SerialUnit.serial)
+        .join(Lead, Ticket.lead_id == Lead.id)
+        .outerjoin(User, Ticket.technician_id == User.id)
+        .outerjoin(SerialUnit, Ticket.serial_unit_id == SerialUnit.id)
+    )
+
+
+def _list_items(rows) -> list[TicketListItem]:
+    return [
+        TicketListItem(
+            id=t.id,
+            ref=t.ref,
+            lead_name=lead_name,
+            lead_address=lead_address,
+            serial=serial,
+            issue=t.issue,
+            under_warranty=t.under_warranty,
+            status=t.status.value,
+            technician_name=tech_name,
+            source=t.source,
+            created_at=t.created_at.isoformat(),
+        )
+        for t, lead_name, lead_address, tech_name, serial in rows
+    ]
 
 def _build_detail(db: Session, ticket: Ticket) -> TicketDetail:
     lead = db.get(Lead, ticket.lead_id)
@@ -187,44 +232,35 @@ def list_tickets(
     db: Session = Depends(get_db),
 ):
     """List tickets, optionally filtered by status. Perm: tickets:read."""
-    q = (
-        db.query(Ticket, Lead.name, User.name, SerialUnit.serial)
-        .join(Lead, Ticket.lead_id == Lead.id)
-        .outerjoin(User, Ticket.technician_id == User.id)
-        .outerjoin(SerialUnit, Ticket.serial_unit_id == SerialUnit.id)
-    )
+    q = _list_query(db)
     if status:
         q = q.filter(Ticket.status == TicketStatus(status))
-    rows = q.order_by(Ticket.created_at.desc()).all()
+    return _list_items(q.order_by(Ticket.created_at.desc()).all())
 
-    return [
-        TicketListItem(
-            id=t.id,
-            ref=t.ref,
-            lead_name=lead_name,
-            serial=serial,
-            issue=t.issue,
-            under_warranty=t.under_warranty,
-            status=t.status.value,
-            technician_name=tech_name,
-            source=t.source,
-            created_at=t.created_at.isoformat(),
-        )
-        for t, lead_name, tech_name, serial in rows
-    ]
+
+@router.get("/mine", response_model=list[TicketListItem])
+def my_tickets(
+    user=Depends(require_perm("tickets:mine")),
+    db: Session = Depends(get_db),
+):
+    """Service visits assigned to the logged-in technician, open ones first (filtered on the server). Perm: tickets:mine."""
+    rows = (
+        _list_query(db)
+        .filter(Ticket.technician_id == user.id)
+        .order_by((Ticket.status == TicketStatus.CLOSED), Ticket.created_at.desc())
+        .all()
+    )
+    return _list_items(rows)
 
 
 @router.get("/{ticket_id}", response_model=TicketDetail)
 def get_ticket(
     ticket_id: int,
-    user=Depends(require_perm("tickets:read")),
+    user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
-    """Full ticket detail with lead, serial, invoice. Perm: tickets:read."""
-    ticket = db.get(Ticket, ticket_id)
-    if not ticket:
-        raise ApiError(404, "Ticket not found")
-    return _build_detail(db, ticket)
+    """Full ticket detail with lead, serial, invoice. Perm: tickets:read, or tickets:mine for the assigned technician."""
+    return _build_detail(db, _readable_ticket(db, user, ticket_id))
 
 
 @router.post("", response_model=TicketDetail, status_code=201)
@@ -267,14 +303,21 @@ def create_ticket(
 def transition_ticket(
     ticket_id: int,
     body: TransitionRequest,
-    user=Depends(require_perm("tickets:write")),
+    user=Depends(get_current_user),
     db: Session = Depends(get_db),
 ):
     """Transition a ticket. ASSIGNED needs technicianId. RESOLVED stores costs + creates invoice if billable.
-    CLOSED needs customerConfirmed. Perm: tickets:write."""
-    ticket = db.get(Ticket, ticket_id)
+    CLOSED needs customerConfirmed. Perm: tickets:write for every step; the assigned technician
+    (tickets:mine) may only start the repair and resolve it."""
+    # lock the row so a double tap can't resolve twice (and bill twice)
+    ticket = db.get(Ticket, ticket_id, with_for_update=True)
     if not ticket:
         raise ApiError(404, "Ticket not found")
+    if not has_perm(user, "tickets:write"):
+        if not (has_perm(user, "tickets:mine") and ticket.technician_id == user.id):
+            raise ApiError(403, "You don't have permission to do this")
+        if body.to not in TECH_STEPS:
+            raise ApiError(403, "Only Support can assign or close a ticket")
 
     assert_transition("ticket", ticket.status.value, body.to)
 
