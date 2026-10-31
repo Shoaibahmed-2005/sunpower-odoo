@@ -1,20 +1,48 @@
-// Owned by C — placeholder stub so the shell compiles.
-// C replaces with real AuthContext (user, login, logout, can(perm), loads /api/auth/me on start).
+/**
+ * Authentication and authorization context.
+ * Owner: C (BUILD_PLAN §4, §9).
+ */
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import api from "../api/client";
 
-// role→permissions loaded from shared/access.json at build time isn't possible
-// without the file, so we inline the map here as a fallback until B provides it.
 const ACCESS: Record<string, string[]> = {
   DIRECTOR: ["*"],
-  SALES: ["dashboard:read","leads:read","leads:write","surveys:read","surveys:approve",
-          "quotes:read","quotes:write","invoices:read","invoices:write",
-          "packages:read","stock:read","jobs:read","users:read"],
-  TECHNICIAN: ["jobs:mine","surveys:read","surveys:submit"],
-  WAREHOUSE: ["dashboard:read","stock:read","stock:write","dispatches:read","dispatches:write",
-              "serials:read","products:read","packages:read","jobs:read"],
-  SUPPORT: ["dashboard:read","tickets:read","tickets:write","serials:read","jobs:read",
-            "invoices:read","users:read"],
+  SALES: [
+    "dashboard:read",
+    "leads:read",
+    "leads:write",
+    "surveys:read",
+    "surveys:approve",
+    "quotes:read",
+    "quotes:write",
+    "invoices:read",
+    "invoices:write",
+    "packages:read",
+    "stock:read",
+    "jobs:read",
+    "users:read",
+  ],
+  TECHNICIAN: ["jobs:mine", "surveys:read", "surveys:submit"],
+  WAREHOUSE: [
+    "dashboard:read",
+    "stock:read",
+    "stock:write",
+    "dispatches:read",
+    "dispatches:write",
+    "serials:read",
+    "products:read",
+    "packages:read",
+    "jobs:read",
+  ],
+  SUPPORT: [
+    "dashboard:read",
+    "tickets:read",
+    "tickets:write",
+    "serials:read",
+    "jobs:read",
+    "invoices:read",
+    "users:read",
+  ],
 };
 
 export interface User {
@@ -39,18 +67,46 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    api.get("/auth/me").then((r) => setUser(r.data.user)).catch(() => {}).finally(() => setLoading(false));
+    api
+      .get("/auth/me")
+      .then((r) => {
+        const u = r.data.user;
+        setUser({
+          id: u.id,
+          name: u.name,
+          loginId: u.loginId || u.login_id,
+          role: u.role,
+        });
+      })
+      .catch(() => {
+        setUser(null);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, []);
 
   const login = async (loginId: string, password: string): Promise<User> => {
     const r = await api.post("/auth/login", { loginId, password });
-    setUser(r.data.user);
-    return r.data.user;
+    const u = r.data.user;
+    const userData: User = {
+      id: u.id,
+      name: u.name,
+      loginId: u.loginId || u.login_id,
+      role: u.role,
+    };
+    setUser(userData);
+    return userData;
   };
 
   const logout = async () => {
-    await api.post("/auth/logout").catch(() => {});
-    setUser(null);
+    try {
+      await api.post("/auth/logout");
+    } catch {
+      // ignore logout network errors
+    } finally {
+      setUser(null);
+    }
   };
 
   const can = (perm: string): boolean => {
@@ -67,6 +123,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 }
 
 export function useAuth() {
-  return useContext(AuthContext);
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
 }
-

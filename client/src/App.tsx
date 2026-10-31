@@ -8,6 +8,7 @@ import { salesRoutes } from "./routes/salesRoutes";
 import { quoteRoutes } from "./routes/quoteRoutes";
 import { inventoryRoutes } from "./routes/inventoryRoutes";
 import { fieldRoutes } from "./routes/fieldRoutes";
+import Login from "./pages/auth/Login";
 
 export interface AppRoute {
   path: string;
@@ -30,7 +31,7 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             {/* Login is outside Layout — owned by C */}
-            <Route path="/login" element={<div>Login page — owned by C</div>} />
+            <Route path="/login" element={<Login />} />
             <Route element={<Layout />}>
               {allRoutes.map((r) => (
                 <Route
@@ -52,4 +53,3 @@ export default function App() {
     </QueryClientProvider>
   );
 }
-

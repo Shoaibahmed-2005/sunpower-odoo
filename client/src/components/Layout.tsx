@@ -9,9 +9,12 @@ const menuItems = [
   { to: "/leads", label: "Enquiries", perm: "leads:read" },
   { to: "/surveys", label: "Surveys", perm: "surveys:read" },
   { to: "/quotations", label: "Quotations", perm: "quotes:read" },
+  { to: "/invoices", label: "Invoices", perm: "invoices:read" },
+  { to: "/stock", label: "Stock", perm: "stock:read" },
   { to: "/dispatches", label: "Dispatches", perm: "dispatches:read" },
   { to: "/jobs", label: "Jobs", perm: "jobs:read" },
   { to: "/tickets", label: "Tickets", perm: "tickets:read" },
+  { to: "/reports/profit", label: "Profit", perm: "reports:read" },
   { to: "/m", label: "My Work", perm: "jobs:mine" },
 ] as const;
 

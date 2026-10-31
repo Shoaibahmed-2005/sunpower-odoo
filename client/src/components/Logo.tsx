@@ -18,14 +18,14 @@ export default function Logo({ variant = "full", size = "sm" }: LogoProps) {
 
   if (failed) {
     return (
-      <span className="font-heading font-semibold text-primary">Kiran</span>
+      <span className="font-heading font-semibold text-primary">SunPower</span>
     );
   }
 
   return (
     <img
       src={src}
-      alt="Kiran"
+      alt="SunPower"
       className={sizeClasses[size]}
       onError={() => setFailed(true)}
     />
