@@ -1,12 +1,207 @@
-# BUILD_PLAN.md — Kiran: Solar Installation Management System
+# BUILD_PLAN.md — SunPower: Solar Installation Management System
 
 > **For AI coding agents:** read this whole file before writing code. Then build **only the section for your member** (A, B, C or D, see §11). Follow the contracts in §5–§9 exactly: other members are building against them at the same time. Never edit a file owned by another member (§3). If you need a contract or schema change, do not make it yourself: add a line to `CHANGES_NEEDED.md` (`[SCHEMA]`, `[CONTRACT]` or `[DEP]` + what + why) and tell your human. Keep code simple and explainable: every line will be questioned in the technical round.
 
 ---
 
+## v3 — Day-2 master plan (31 Oct, 22:00) — EVERYONE READ THIS FIRST
+
+> **This section overrides anything older below.** Where §1–§17 disagree with v3, v3 wins.
+> **For AI agents:** read v3 fully, then build only the work package (WP) and member you are told to. Follow V3.4–V3.8 contracts exactly. Never edit a file listed under another WP/member in V3.3 unless your WP explicitly lists it.
+
+### V3.1 Where we are (verified on `main` at 21:45)
+
+| Area | Status |
+|---|---|
+| Day-1 P0 for A, B, C, D | Merged into `integration` → `main` |
+| Backend tests | 36 of 37 pass (1 fails: Confirm-order crash, WP1) |
+| Frontend | `tsc` clean, `vite build` succeeds |
+| End-to-end flow | enquiry → call → survey → approve → quote → pay → confirm → scan → validate (warranty) → job start/finish → ticket lookup → dashboard: **works** (with the WP1 fix) |
+| Uploads | fixed on `main` (any logged-in user, saved to `settings.upload_dir`) |
+| Product name | **SunPower** (no longer "Kiran"); repo `Shoaibahmed-2005/sunpower-odoo` |
+
+### V3.2 Team decisions now in force
+
+1. **Branches.** Each WP is built on its own branch `wp<N>-<member>-<short-name>` (e.g. `wp2-b-admin-role`). When its tests pass, open a PR into **`integration`**. D (integrator) merges `integration` → **`main`** after the full test run. Never push directly to `main`. **`main` is the single submission branch** (Odoo rule).
+2. **Commit identity.** Everyone commits with the email linked to their GitHub account (`git config user.email ...`). Commits by an unlinked email (e.g. `developer-c@sunpower.local`) don't count as that member's work on GitHub. Small, meaningful commits every 20–40 minutes.
+3. **Router prefixes.** Each router sets its own `APIRouter(prefix=...)`; `main.py` adds none (DECISIONS.md, A).
+4. **Transactions.** Never `with db.begin()`. Every write endpoint: guards → changes → one `db.commit()`; `db.rollback()` + re-raise on any error. Lock rows that hold money/stock/status with `with_for_update=True` before checking them.
+5. **Subsidy (team decision, A + C).** The customer pays `total − subsidy` (`netPayable`); `balance = netPayable − paid`. Profit revenue adds the subsidy back. *(This replaces the earlier "subsidy doesn't reduce the bill" note.)* All new screens (portal included) show: Total, Subsidy, Net payable, Paid, Pending, Balance.
+6. **Role rename.** `DIRECTOR` becomes **`ADMIN`** (WP2). Admin = super user (`"*"`) + user management. The problem statement's "director" means this Admin user.
+7. **No blockchain / "on-chain".** There is no on-chain code in the project and none will be added. If asked about Odoo-style `onchange`: all calculations (totals, stages, warranty, subsidy) run on the server; the browser only displays them.
+8. **Performance rule.** A list endpoint must not run one query per row (N+1). Budget: **≤ 6 SQL queries per list request** on seed data, enforced by a test (WP3).
+9. **Customers** get a separate, phone + OTP portal (WP4). They never use the staff login or staff cookie.
+
+### V3.3 Day-2 work packages — owner, branch, files, order
+
+| WP | What | Owner(s) | Depends on | Est. |
+|---|---|---|---|---|
+| **WP1** | Fix open bugs | C, D | — | 15 min |
+| **WP2** | Director → Admin + user management | **B** (single branch, touches A/C/D files listed) | WP1 merged | 45 min |
+| **WP3** | Remove N+1 queries | A, C, D (each own files, in parallel) | WP2 merged | 30 min |
+| **WP4** | Customer portal | **B** leads; A schema first; C invoices; D app shell | WP2 merged | 2 h |
+| **WP5** | Remaining P2 (if time) | C: subsidy tracker, technician pay · D: crew schedule, notification bell | WP4 merged | 2 h |
+| **WP6** | Freeze, bug bash, demo, docs | all | WP1–WP4 | — |
+
+**File locks.** While a WP branch is open, only its owner edits these files:
+- WP2 (B): `server/app/models.py` (Role enum only), `server/app/seed.py` (admin user only), `shared/access.json`, `server/app/auth.py`, `server/app/routers/users.py`, `server/app/routers/dashboard.py` (role map only), `client/src/auth/AuthContext.tsx` (role map only), `client/src/pages/auth/Login.tsx` (demo list only), `client/src/components/Layout.tsx` (landing map + Users menu item), `client/src/pages/dashboard/Dashboard.tsx` (title only), `client/src/routes/salesRoutes.tsx`, new `client/src/pages/admin/*`, tests.
+- WP3: A → `routers/inventory.py`, `routers/dashboard.py`, `services/stock.py`, `tests/test_query_counts.py`; C → `routers/quotations.py`, `routers/invoices.py`; D → `routers/tickets.py`, `routers/jobs.py`.
+- WP4: A → `models.py`, `seed.py`; B → new `customer_auth.py`, new `routers/portal.py`, `main.py` (one include line, after A agrees), new `client/src/pages/portal/*`, `tests/test_portal.py`; C → `routers/invoices.py`, `routers/quotations.py` (pending display), `transitions.py`; D → `App.tsx`, `routers/tickets.py` + tickets pages (source badge).
+
+### V3.4 WP1 — open bugs (C, D)
+
+- **C:** `routers/quotations.py` `_build_detail`: sort invoices by `x.id`, not `x.created_at` (mixing timezone-aware and naive datetimes crashes Confirm order; ids increase in creation order).
+- **D:** `components/Layout.tsx`: "Surveys" menu item perm `surveys:approve` (technicians must not see an item that opens Forbidden).
+- **Done when:** `uv run pytest -q tests app/tests` → all pass; `npx tsc --noEmit` clean.
+
+### V3.5 WP2 — Admin role and user management (B)
+
+**Rename.** `Role.DIRECTOR` → `Role.ADMIN` in every file listed in V3.3; seed user `admin` / `sun123`, name "Admin"; `access.json` key `"ADMIN": ["*"]`; landing page `/`; dashboard title "Admin Dashboard". After the change, a repo-wide search for `DIRECTOR`/`Director` (outside the problem-statement quote in §1) returns nothing. Run `npm run reset` after merging (role values in the DB change).
+
+**API (B, `routers/users.py`, perm `users:write` — only ADMIN's `"*"` has it):**
+
+| Method + path | Request | Rules / response |
+|---|---|---|
+| `GET /api/users` (unchanged) | `?role=` | active users for dropdowns (`users:read`) |
+| `GET /api/users/all` | — | all users incl. inactive: `{id,name,loginId,role,hourlyRate,active,createdAt}` |
+| `POST /api/users` (exists) | `{name,loginId,password,role,hourlyRate}` | 201; 409 duplicate loginId |
+| `PATCH /api/users/{id}` | `{name?,role?,hourlyRate?,active?}` | 404 unknown; **409** if the admin targets themself with `role` or `active=false`; **409 "At least one active admin is required"** if the change would leave zero active admins |
+| `POST /api/users/{id}/reset-password` | `{password}` (8–128) | 204; bcrypt; never returns the hash |
+
+- "Remove user" = `active=false` (rows are never deleted; past enquiries/jobs keep the name). Inactive users can't log in, and their existing cookie gets 401 on the next request (`get_current_user` already checks `active`).
+- **Frontend:** `/admin/users` (perm `users:write`, menu "Settings › Users & Roles"), `client/src/pages/admin/UsersPage.tsx`: list with role + Active/Inactive badge, New user form, per row: change role, Deactivate/Reactivate, Reset password; own row's actions disabled with a reason.
+- **Tests** `server/tests/test_admin_users.py`: non-admin 403 on every admin endpoint; create / change role / deactivate (can't log in, old cookie 401) / reactivate / reset password; can't demote or deactivate self; last active admin protected.
+
+### V3.6 WP3 — remove N+1 queries (A, C, D in parallel)
+
+Measured on seed data (queries per request): `/api/dispatches` **63** (5 rows), `/api/reports/profit` **39**, `/api/packages` **25**, `/api/quotations` **20**, `/api/invoices` **14**, `/api/serials` 12, `/api/tickets` 5.
+- Use `selectinload` / `joinedload` for relationships each list reads; one grouped query (`func.count`/`func.sum` + `group_by`) for per-row counts/totals; replace `db.get` inside loops with one `.in_()` query + dict lookup.
+- **No response shape or business rule changes.**
+- A writes `server/tests/test_query_counts.py` (SQLAlchemy `before_cursor_execute` listener; each list endpoint ≤ 6 queries). Each owner makes their endpoints pass it.
+- Owners: A → dispatches, packages, serials, profit report, dashboard; C → quotations, invoices; D → tickets, jobs.
+
+### V3.7 WP4 — Customer portal (B leads)
+
+**Goal (Extra):** customers check warranty, raise service requests and pay the advance themselves.
+
+**Security model (non-negotiable):**
+- Sign-in = mobile number + **6-digit OTP**. Demo mode prints `[SMS demo] OTP for <phone>: <code>` to the server log (production: SMS provider). OTP stored as bcrypt hash, expires in 5 min, max 5 attempts, max 3 requests per phone per 10 min (429). The request endpoint **always** returns the same message ("If this number is registered, a code has been sent"); a code is only created if a lead with that phone exists.
+- Separate httpOnly SameSite=lax cookie **`customer_token`** (JWT HS256 `{sub: phone, kind: "customer", exp: 2 h}`). Staff `get_current_user` rejects tokens with `kind: "customer"`; portal endpoints reject staff tokens.
+- Every portal query is filtered by `leads.phone == token phone`. Another customer's record → **404** (never 403).
+- **Customer payments never count as paid by themselves.** The customer enters the UPI/bank reference → invoice `PENDING`; Sales/Admin **verifies** → `PAID`. `PENDING` does not unlock Confirm order. (Production: payment gateway in test mode verifies automatically.)
+
+**Schema (A, first, ~20 min; post `[SCHEMA v3] pushed, run npm run reset`):**
+- `customer_otps`: id · phone (10 digits, index) · code_hash · expires_at · attempts int default 0 · used bool default false · created_at.
+- `InvoiceStatus` adds `PENDING`; `invoices` adds `reference str?` (6–40 chars) · `submitted_by_customer bool default false`.
+- `tickets` adds `source str default "STAFF"` (`STAFF` | `PORTAL`).
+- Seed: every demo customer keeps a real 10-digit phone; at least one with a delivered serial **and** a SENT quotation, for the demo.
+
+**Portal API (B, `routers/portal.py`, prefix `/api/portal`):**
+
+| Method + path | Auth | Request | Rules / response |
+|---|---|---|---|
+| `POST /otp/request` | public | `{phone}` | generic 200 message; 429 over limit |
+| `POST /otp/verify` | public | `{phone, code}` | 200 `{name}` + cookie; 401 "Invalid or expired code" |
+| `POST /logout` | customer | — | 204, clears cookie |
+| `GET /me` | customer | — | `{name, phoneMasked}` (e.g. `98XXXXX223`) |
+| `GET /products` | customer | — | `[{serial, productName, deliveredAt, warrantyUntil, underWarranty}]` delivered to their leads |
+| `GET /quotations` | customer | — | their SENT/CONFIRMED: `{id, ref, packageName, total, subsidy, netPayable, paid, pending, balance, status, lines:[{name, qty}]}` |
+| `POST /quotations/{id}/payments` | customer | `{amount, reference}` | own only (404); status DRAFT/SENT (409); `1 ≤ amount ≤ balance − pending` (400); reference `[A-Za-z0-9-]{6,40}` (400); no other PENDING on it (409); lock the quotation row; creates `ADVANCE` invoice `PENDING`, `submitted_by_customer=true` |
+| `GET /tickets` | customer | — | their tickets: `{ref, serial, issue, status, underWarranty, createdAt}` |
+| `POST /tickets` | customer | `{serial, issue}` | serial delivered to them (404 "Product not found"); issue 10–1000 chars; max 3 open portal tickets per phone (429); `source=PORTAL`; warranty decided by **D's existing helper** (no duplicated rule); `next_ref("TKT")` |
+
+**Staff side:**
+- **C:** `POST /api/invoices/{id}/verify` (`invoices:write`): PENDING → PAID (+`paid_at`); `POST /api/invoices/{id}/reject {reason}`: PENDING → removed/cancelled so the customer can resubmit. Add `"invoice": {"DUE": ["PAID"], "PENDING": ["PAID"]}`. Quotation detail and invoice list show `pending` and the reference with a "from customer" badge.
+- **D:** mount `/portal` routes in `App.tsx` outside `Layout`/`RequirePerm` (like `/enquire`); Tickets list/detail show a "Portal" badge when `source == PORTAL`.
+
+**Portal frontend (B, `client/src/pages/portal/*`, mobile-first, shared components):**
+- `/portal`: phone → Send code → 6-digit code → Verify (resend disabled 30 s); generic messages only.
+- `/portal/home`, three tabs: **My products** (Covered until / Expired badge, "Raise a request"); **My quotations** (Total, Subsidy, Net payable, Paid, Pending, Balance; "Pay advance": show UPI ID `sunpower@upi`, amount, reference → "Pending verification by SunPower"); **My requests** (list + new request form).
+- Own axios calls to `/api/portal` with `withCredentials`; a 401 here goes to `/portal`, never the staff `/login`. "Customer portal" link on the public enquiry page.
+
+**Tests** `server/tests/test_portal.py`: identical OTP message for known/unknown phones; wrong code 401; 6th attempt blocked; expired code rejected; 4th request in 10 min → 429; customer A can't see/pay B's quotation or ticket B's serial (404); staff cookie 401 on portal, customer cookie 401 on `/api/leads`; customer payment = PENDING and Confirm still 409 until staff verifies, then succeeds; amount > allowed → 400; second pending → 409; portal ticket has `source=PORTAL` and correct warranty.
+
+**Docs:** B writes `docs/explain/portal.md` (flow, each security rule and why, 5 evaluator Q&As). Add `[B] Customer portal is an Extra beyond the problem statement` to DECISIONS.md.
+
+### V3.8 Updated roles and access
+
+```json
+{
+  "ADMIN":      ["*"],
+  "SALES":      ["dashboard:read","leads:read","leads:write","surveys:read","surveys:approve",
+                 "quotes:read","quotes:write","invoices:read","invoices:write",
+                 "packages:read","stock:read","jobs:read","users:read"],
+  "TECHNICIAN": ["jobs:mine","surveys:read","surveys:submit"],
+  "WAREHOUSE":  ["dashboard:read","stock:read","stock:write","dispatches:read","dispatches:write",
+                 "serials:read","products:read","packages:read","jobs:read"],
+  "SUPPORT":    ["dashboard:read","tickets:read","tickets:write","serials:read","jobs:read",
+                 "invoices:read","users:read"]
+}
+```
+- `users:write` and `reports:read` exist only through ADMIN's `"*"`.
+- Customers are **not** a staff role; they only use `/api/portal/*` with `customer_token`.
+- Landing pages: Admin `/`, Sales `/leads`, Technician `/m`, Warehouse `/dispatches`, Support `/tickets`, Customer `/portal/home`.
+- Demo logins after WP2: `admin`, `priya`, `karan`, `vikram`, `arjun`, `sameer`, `deepa`, `farhan` (password `sun123`).
+
+### V3.9 Day-2 timeline (final code by 18:00, 1 Nov)
+
+| Time | What | Gate |
+|---|---|---|
+| 22:00–22:30 (31 Oct) | WP1 (C, D) → PR → merge to `main`; everyone pulls this plan | all tests green |
+| 22:30–23:30 | WP2 (B); others study their own files (§18) or sleep shift 1 | B's PR reviewed by D |
+| 23:30–00:30 | WP3 (A, C, D in parallel) | query-count test passes |
+| 00:30–07:30 | Sleep in shifts; whoever is awake fixes only `[BUG]` items | — |
+| 08:00–08:30 | WP4 schema (A) → `[SCHEMA v3]` | `npm run reset` works for all |
+| 08:30–11:00 | WP4 in parallel: B portal API + pages; C verify/reject + pending display; D App mount + ticket badge | portal tests pass |
+| 11:00–11:30 | Sync: full run on D's laptop (V3.10) | break list with owners |
+| 11:30–14:00 | Break list → WP5 if time | — |
+| **14:00** | **Feature freeze** | no new features after this |
+| 14:00–16:00 | Bug bash (A↔C, B↔D), input validation sweep, empty/loading states | — |
+| 16:00–17:30 | Demo rehearsal, `docs/explain/*` final, each member walks a teammate through their files | — |
+| **17:30** | Final `integration` → `main` merge, full test run, submit `main` | before 18:00 |
+
+Stand-up at each gate: merged / next / blocked (5 minutes). Chat tags unchanged: `[PUSHED]`, `[CONTRACT]`, `[BLOCKED]`, `[SCHEMA]`, `[DEP]`, `[BUG] … → owner`.
+
+### V3.10 Updated demo script (happy path)
+
+1. **Admin** (`admin`) opens Users & Roles: creates a technician, changes a role, deactivates a user (they can't log in).
+2. **Sales** (`priya`): new enquiry (Call) → Log call → Qualified → Create quotation is disabled → schedule survey for `vikram`.
+3. **Technician** (`vikram`, phone): survey with photo → Submit. Sales approves → quote unlocks → ON-3 → lines fill.
+4. **Customer** (portal, phone + OTP from the server log): sees the quotation → Pay advance with UPI reference → "Pending verification".
+5. **Sales** verifies the payment → Confirm (date, technician, crew) → dispatch + job created.
+6. **Warehouse** (`deepa`): scan serials (duplicate refused) → Validate → warranties (2 yr / 20 yr).
+7. **Technician**: Start → photo → customer signs → Finish.
+8. **Customer** (portal): My products shows "Covered until …" → raises a request.
+9. **Support** (`farhan`): sees the Portal ticket → assign → resolve (₹0 under warranty); expired serial `INV-OG3-22B0077` → repair invoice → customer confirmed → Closed.
+10. **Admin**: dashboard today/week/month → profit per job (loss-making warranty job in red).
+11. Security checks: technician on `/leads` → Forbidden; staff cookie on `/api/portal/products` → 401; customer cookie on `/api/leads` → 401.
+
+### V3.11 Agent prompt template (Antigravity)
+
+```
+Read BUILD_PLAN.md completely, starting with "v3 — Day-2 master plan".
+I am Member <A/B/C/D>. Build ONLY work package WP<N> as described in V3.<x>,
+on branch wp<N>-<member>-<name>. Edit only the files V3.3 assigns to me for this WP.
+Follow V3.2 decisions and the §6 / §16 code rules (guards first, one commit,
+no N+1, every input validated, explainable code). If you need a schema,
+contract or dependency change, write it to CHANGES_NEEDED.md and stop.
+Run: cd server && uv run pytest -q tests app/tests  and  cd client && npx tsc --noEmit.
+All must pass. Append what you built to docs/explain/member-<x>.md.
+Show me the diff and the list of changed files. Commit with a clear message; do not push.
+```
+
+### V3.12 Technical round additions (everyone)
+
+- **Admin:** why "remove" = deactivate (history, foreign keys, audit); why an admin can't demote or deactivate themself; why at least one active admin.
+- **N+1:** what it is, how you measured it (query counter), how eager loading fixes it, the test that keeps it fixed.
+- **Portal:** why phone alone isn't enough (anyone can guess a number); OTP rules (hash, expiry, attempts, rate limit, same message); separate customer cookie; why customer payments are PENDING until verified.
+- **"On-chain":** we don't use blockchain; data integrity comes from database constraints, row locks, transactions and the audit fields (who approved/confirmed and when).
+
+---
+
 ## 1. What we are building
 
-Kiran replaces WhatsApp quotes and paper site registers for **SunPower Solutions**, a rooftop solar company (about 40 installs a month, 15 technicians). One web app takes a customer from the first enquiry to the 20-year warranty. The problem statement's six scenes are the scope:
+SunPower replaces WhatsApp quotes and paper site registers for **SunPower Solutions**, a rooftop solar company (about 40 installs a month, 15 technicians). One web app takes a customer from the first enquiry to the 20-year warranty. The problem statement's six scenes are the scope:
 
 | # | Scene | Must work |
 |---|---|---|
@@ -53,7 +248,7 @@ Root `package.json` scripts (A creates in Phase 0):
 ```
 `server/.env` (from `.env.example`, never committed):
 ```
-DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/kiran
+DATABASE_URL=postgresql+psycopg://postgres:postgres@localhost:5432/sunpower
 JWT_SECRET=change-me-long-random
 ```
 
@@ -64,7 +259,7 @@ JWT_SECRET=change-me-long-random
 Only edit files you own. `main.py` and `App.tsx` are created in Phase 0 with everything pre-registered and then **never edited again**.
 
 ```
-kiran/
+sunpower/
   package.json                      A
   BUILD_PLAN.md  DECISIONS.md  CHANGES_NEEDED.md   all (append only)
   design/inspiration/*.png          D   Pinterest style references (style only, §9.1)
@@ -234,7 +429,7 @@ def get_db():
     with SessionLocal() as db:
         yield db
 ```
-Write operations that touch several rows run inside `with db.begin():` (one transaction). Never commit halfway through a gate.
+**Superseded by V3.2-4:** never use `with db.begin()`. Write endpoints run guards → changes → one `db.commit()`, and `db.rollback()` + re-raise on any error.
 
 **Auth (B)**
 ```python
@@ -364,6 +559,7 @@ Base `/api`. All endpoints need the cookie except auth login and `/public/*`. Li
 
 ### 8.1 Dispatch validate (A) — safe when two people click at once
 ```python
+# NOTE (v3): written with `with db.begin()` for readability; the real code uses try / db.commit() / db.rollback() (V3.2-4).
 def validate_dispatch(db, dispatch_id, user):
     with db.begin():
         d = db.get(Dispatch, dispatch_id, with_for_update=True)          # row lock on Postgres
@@ -512,9 +708,9 @@ client/public/favicon.png           32×32 or 64×64 version of the mark
 | Public enquiry form `/enquire` | full, `md`, top left |
 | App top bar (every logged-in page) | full `sm` (about 28 px tall) on desktop, mark `sm` on narrow screens; links to the role's landing page |
 | Technician phone layout header `/m/*` | mark, `sm` |
-| Browser tab | `favicon.png` set in `client/index.html`, page title "Kiran" |
+| Browser tab | `favicon.png` set in `client/index.html`, page title "SunPower" |
 | Printed / exported documents (P2) | full, `sm` |
-Always `alt="Kiran"`, never stretched (keep aspect ratio with `h-*` + `w-auto`), on a background that keeps it visible. If the logo file is missing, `<Logo>` falls back to the text "Kiran" in the heading font, so nothing breaks while the file is being added.
+Always `alt="SunPower"`, never stretched (keep aspect ratio with `h-*` + `w-auto`), on a background that keeps it visible. If the logo file is missing, `<Logo>` falls back to the text "SunPower" in the heading font, so nothing breaks while the file is being added.
 
 **UX rules:** a button whose gate isn't met is disabled with a tooltip saying why · every mutation shows a success toast · lists show an empty state · references and serials in mono font · technician screens large and high-contrast (used in sunlight). All pages must follow design/DESIGN.md → UI rules for new pages.
 
