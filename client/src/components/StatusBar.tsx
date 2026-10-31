@@ -1,60 +1,82 @@
+import React from "react";
 import { Check } from "lucide-react";
 
 interface StatusBarProps {
   steps: string[];
   current: string;
+  onStepClick?: (step: string) => void;
+  className?: string;
 }
 
-export default function StatusBar({ steps, current }: StatusBarProps) {
-  const currentIdx = steps.indexOf(current);
+export default function StatusBar({
+  steps,
+  current,
+  onStepClick,
+  className = "",
+}: StatusBarProps) {
+  const currentIdx = steps.findIndex(
+    (s) => s.toLowerCase() === current.toLowerCase()
+  );
 
   return (
-    <div className="flex items-center w-full">
-      {steps.map((step, i) => {
-        const isCompleted = i < currentIdx;
-        const isCurrent = i === currentIdx;
+    <div className={`w-full overflow-x-auto pb-1 mb-6 ${className}`}>
+      <div className="flex items-center min-w-max border border-border rounded-md bg-surface p-1 shadow-xs">
+        {steps.map((step, i) => {
+          const isCompleted = currentIdx !== -1 && i < currentIdx;
+          const isCurrent = currentIdx !== -1 && i === currentIdx;
+          const isFuture = currentIdx === -1 || i > currentIdx;
+          const isClickable = !!onStepClick;
 
-        return (
-          <div key={step} className="flex-1 flex items-center">
-            <div className="flex flex-col items-center flex-1">
-              {/* Circle */}
-              {isCompleted ? (
-                <div className="w-6 h-6 rounded-full bg-success flex items-center justify-center">
-                  <Check className="w-3.5 h-3.5 text-white" />
+          let stepStyle = "bg-transparent text-muted hover:text-text border-transparent";
+          if (isCurrent) {
+            stepStyle = "bg-primary text-white font-semibold shadow-xs";
+          } else if (isCompleted) {
+            stepStyle = "bg-surface-2 text-text font-medium";
+          } else if (isFuture) {
+            stepStyle = "text-muted/70 hover:text-muted";
+          }
+
+          return (
+            <React.Fragment key={step}>
+              {i > 0 && (
+                <div className="w-4 h-full flex items-center justify-center text-border shrink-0 select-none">
+                  <svg
+                    className="w-3.5 h-6 text-border stroke-current fill-none"
+                    viewBox="0 0 12 24"
+                    preserveAspectRatio="none"
+                  >
+                    <path
+                      d="M0 0 L8 12 L0 24"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
                 </div>
-              ) : isCurrent ? (
-                <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center">
-                  <div className="w-2 h-2 rounded-full bg-white" />
-                </div>
-              ) : (
-                <div className="w-6 h-6 rounded-full border-2 border-border bg-surface" />
               )}
-
-              {/* Label */}
-              <span
-                className={`mt-1 text-xs ${
-                  isCompleted
-                    ? "font-medium"
-                    : isCurrent
-                      ? "font-semibold text-primary"
-                      : "text-muted"
+              <button
+                type="button"
+                onClick={isClickable ? () => onStepClick(step) : undefined}
+                disabled={!isClickable}
+                className={`relative flex items-center gap-2 px-3.5 py-1.5 rounded-sm text-xs md:text-sm transition-colors whitespace-nowrap select-none ${stepStyle} ${
+                  isClickable ? "cursor-pointer" : "cursor-default"
                 }`}
               >
-                {step}
-              </span>
-            </div>
-
-            {/* Connecting line */}
-            {i < steps.length - 1 && (
-              <div
-                className={`h-0.5 flex-1 -mx-1 ${
-                  i < currentIdx ? "bg-success" : "bg-border"
-                }`}
-              />
-            )}
-          </div>
-        );
-      })}
+                {isCompleted ? (
+                  <span className="w-4 h-4 rounded-full bg-success/20 text-success flex items-center justify-center shrink-0">
+                    <Check className="w-3 h-3 stroke-[2.5]" />
+                  </span>
+                ) : isCurrent ? (
+                  <span className="w-2 h-2 rounded-full bg-accent shrink-0" />
+                ) : (
+                  <span className="w-2 h-2 rounded-full border border-muted/50 shrink-0" />
+                )}
+                <span>{step}</span>
+              </button>
+            </React.Fragment>
+          );
+        })}
+      </div>
     </div>
   );
 }

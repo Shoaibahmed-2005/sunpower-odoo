@@ -1,6 +1,6 @@
 /* tokens.css — Brand colours from §9, shape values from DESIGN.md */
 
-@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400&family=Noto+Sans:wght@400;500;600&family=Poppins:wght@600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap");
 
 :root {
   /* Colours — from §9 brand kit only */
@@ -28,7 +28,7 @@
   --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.08);
   --shadow-pop: 0 4px 16px rgba(0, 0, 0, 0.12);
 
-  /* Spacing scale */
+  /* Spacing scale: 4 / 8 / 12 / 16 / 24 / 32 */
   --sp-1: 4px;
   --sp-2: 8px;
   --sp-3: 12px;
@@ -41,4 +41,3 @@
   --control-height: 40px;
   --control-height-lg: 48px;
 }
-
