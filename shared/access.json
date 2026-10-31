@@ -1,0 +1,11 @@
+{
+  "DIRECTOR":   ["*"],
+  "SALES":      ["dashboard:read", "leads:read", "leads:write", "surveys:read", "surveys:approve",
+                 "quotes:read", "quotes:write", "invoices:read", "invoices:write",
+                 "packages:read", "stock:read", "jobs:read", "users:read"],
+  "TECHNICIAN": ["jobs:mine", "surveys:read", "surveys:submit"],
+  "WAREHOUSE":  ["dashboard:read", "stock:read", "stock:write", "dispatches:read", "dispatches:write",
+                 "serials:read", "products:read", "packages:read", "jobs:read"],
+  "SUPPORT":    ["dashboard:read", "tickets:read", "tickets:write", "serials:read", "jobs:read",
+                 "invoices:read", "users:read"]
+}
