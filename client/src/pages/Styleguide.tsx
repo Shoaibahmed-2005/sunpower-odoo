@@ -35,7 +35,7 @@ export default function Styleguide() {
   return (
     <div className="space-y-10 pb-16 max-w-6xl mx-auto">
       <PageHeader
-        title="Kiran Design System & Styleguide"
+        title="SunPower Design System & Styleguide"
         subtitle="Canonical component inventory and usage examples per BUILD_PLAN.md (§9, §9.1) and DESIGN.md"
         breadcrumbs={[{ label: "Dev Tools" }, { label: "Styleguide" }]}
         actions={

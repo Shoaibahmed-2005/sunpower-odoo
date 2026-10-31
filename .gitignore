@@ -10,3 +10,4 @@ dist
 
 *.db
 server/chrome_temp_profile
+server/chrome_enquire_profile

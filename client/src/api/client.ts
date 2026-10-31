@@ -17,9 +17,10 @@ api.interceptors.response.use(
     const url = error.config?.url || "";
 
     // On 401: redirect to login if not checking session (/auth/me) or trying to log in (/auth/login)
+    // Never redirect public pages (/login, /enquire)
     if (status === 401) {
       if (!url.includes("/auth/me") && !url.includes("/auth/login")) {
-        if (window.location.pathname !== "/login") {
+        if (window.location.pathname !== "/login" && window.location.pathname !== "/enquire") {
           window.location.href = "/login";
         }
       }

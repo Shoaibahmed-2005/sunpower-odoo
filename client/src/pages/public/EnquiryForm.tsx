@@ -25,18 +25,36 @@ export default function EnquiryForm() {
 
   if (send.isSuccess) {
     return (
-      <main className="mx-auto max-w-lg space-y-4 p-6">
-        <Logo variant="full" size="md" />
-        <h1 className="text-2xl font-semibold">Thank you, we've got your request</h1>
-        <p>Your reference is <span className="font-mono font-semibold">{send.data.ref}</span>. Our team will call you shortly.</p>
+      <main className="mx-auto max-w-lg space-y-6 p-6 text-center">
+        <div className="flex justify-center pt-4">
+          <Logo variant="full" size="md" />
+        </div>
+        <div className="rounded-card border border-border bg-surface p-6 shadow-card space-y-3">
+          <h1 className="text-2xl font-heading font-semibold text-text">
+            Thanks! Your enquiry {send.data.ref} has been received
+          </h1>
+          <p className="text-sm text-muted">
+            Your reference number is{" "}
+            <span className="font-mono font-bold text-primary text-base">
+              {send.data.ref}
+            </span>
+            . Our team will call you shortly.
+          </p>
+        </div>
       </main>
     );
   }
 
   return (
-    <main className="mx-auto max-w-lg space-y-4 p-6">
-      <Logo variant="full" size="md" />
-      <h1 className="text-2xl font-semibold">Get a rooftop solar quote</h1>
+    <main className="mx-auto max-w-lg space-y-5 p-6">
+      <div className="flex justify-center pt-2">
+        <Logo variant="full" size="md" />
+      </div>
+      <div className="text-center pb-2">
+        <h1 className="text-2xl font-heading font-semibold text-text">Get a rooftop solar quote</h1>
+        <p className="text-sm text-muted mt-1">Fill out the form below to receive a free solar assessment</p>
+      </div>
+
       <Field label="Full name" error={errors.name}>
         <input className={inputCls} autoComplete="name" maxLength={100} value={form.name} onChange={(e) => set("name", e.target.value)} />
       </Field>
@@ -60,14 +78,16 @@ export default function EnquiryForm() {
       <Field label="Monthly electricity bill (₹)" error={errors.monthlyBill}>
         <input className={inputCls} type="number" min={1} value={form.monthlyBill} onChange={(e) => set("monthlyBill", e.target.value)} />
       </Field>
-      <label className="flex items-center gap-2">
-        <input type="checkbox" checked={form.subsidyInterest} onChange={(e) => set("subsidyInterest", e.target.checked)} />
+      <label className="flex items-center gap-2 text-sm text-text cursor-pointer">
+        <input type="checkbox" checked={form.subsidyInterest} onChange={(e) => set("subsidyInterest", e.target.checked)} className="rounded text-primary focus:ring-primary" />
         I'm interested in the government subsidy
       </label>
       {/* honeypot: invisible to people, bots fill it, the server then rejects the request */}
       <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" value={form.website}
         onChange={(e) => set("website", e.target.value)} style={{ position: "absolute", left: "-10000px" }} />
-      <Button variant="primary" loading={send.isPending} disabled={send.isPending} onClick={submit}>Request quote</Button>
+      <Button variant="primary" loading={send.isPending} disabled={send.isPending} onClick={submit} className="w-full">
+        Request quote
+      </Button>
     </main>
   );
 }
