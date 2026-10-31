@@ -166,3 +166,33 @@ Source: `01-sidebar-dashboard-wireframes.jpg` — SaaS dashboard wireframe colla
 | Caption       | Noto Sans | 12px | 400    | `--muted` |
 | Ref / serial  | JetBrains Mono | 13px | 400 | `--text` |
 
+
+
+---
+
+## UI rules for new pages
+
+1. **Always use shared templates and components:**
+   - List views must use `<ListPage>` with `<DataTable>`.
+   - Single-record views must use `<RecordPage>` with `<StatusBar>` and `<Card>`.
+   - Dashboard views must use `<DashboardPage>` and KPI cards.
+   - Mobile technician views must use `<PhonePage>` and `<PhoneLayout>`.
+2. **No raw HTML primitives for core UI:**
+   - No raw `<table>`, `<thead>`, `<tbody>` → use `<DataTable>`.
+   - No raw `<button>` → use `<Button variant="..." size="...">`.
+   - No raw inputs without `<Field label="..." error="...">`.
+   - Form groups must use `<FormSection title="..." columns={1|2|3}>`.
+3. **No hard-coded colors or one-off arbitrary styles:**
+   - Use tokens exclusively (`text-primary`, `bg-surface`, `border-border`, `text-muted`).
+   - Spacing must stick to the 4/8/12/16/24/32 scale (`sp1` through `sp8` or standard tailwind 1, 2, 3, 4, 6, 8).
+4. **Primary action rule:**
+   - Maximum one primary action button per page/view (`variant="primary"`). All secondary actions must be `variant="secondary"` or `variant="ghost"`.
+5. **Data representations:**
+   - All workflow statuses must be displayed via `<Badge status={...} />`.
+   - All currencies must be formatted in Indian Rupees using `formatINR(val)` (e.g. ₹1,95,000, never `$`).
+   - All dates must be formatted via `formatDate(val)` or `formatDateTime(val)`.
+   - Serial numbers and reference IDs must use `font-mono` (JetBrains Mono).
+6. **Robust list behavior:**
+   - Every list must have search (`onSearch` or `searchPlaceholder`), an empty state (`emptyMessage`), and loading skeleton state (`loading={isLoading}`).
+7. **Gated buttons:**
+   - Any button blocked by a workflow gate or permission must be `disabled={true}` with an explanatory `disabledReason="Why action is blocked"`.

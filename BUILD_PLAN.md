@@ -516,7 +516,7 @@ client/public/favicon.png           32×32 or 64×64 version of the mark
 | Printed / exported documents (P2) | full, `sm` |
 Always `alt="Kiran"`, never stretched (keep aspect ratio with `h-*` + `w-auto`), on a background that keeps it visible. If the logo file is missing, `<Logo>` falls back to the text "Kiran" in the heading font, so nothing breaks while the file is being added.
 
-**UX rules:** a button whose gate isn't met is disabled with a tooltip saying why · every mutation shows a success toast · lists show an empty state · references and serials in mono font · technician screens large and high-contrast (used in sunlight).
+**UX rules:** a button whose gate isn't met is disabled with a tooltip saying why · every mutation shows a success toast · lists show an empty state · references and serials in mono font · technician screens large and high-contrast (used in sunlight). All pages must follow design/DESIGN.md → UI rules for new pages.
 
 ---
 
