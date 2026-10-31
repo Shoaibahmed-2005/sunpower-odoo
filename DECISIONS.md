@@ -10,3 +10,4 @@
 - [A] `config.py` reads `server/.env` with a 10-line loader instead of adding pydantic-settings/python-dotenv (the §2 stack has neither). Real environment variables override `.env`.
 - [A] Seed subsidy is on-grid only (₹30,000/kW up to 2 kW, ₹78,000 from 3 kW); off-grid packages get 0, since the rooftop subsidy applies to grid-connected systems.
 - [A] Enums are `str, Enum`, so `role.value == "DIRECTOR"` and Pydantic returns the plain name.
+
