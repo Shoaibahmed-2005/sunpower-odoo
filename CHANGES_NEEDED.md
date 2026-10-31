@@ -9,3 +9,11 @@
 - [DEP] D needs C to create: `client/src/routes/quoteRoutes.tsx`. D will create an empty placeholder.
 - [DEP] D needs A to create: `client/src/routes/inventoryRoutes.tsx`. D will create an empty placeholder.
 
+- [CONTRACT] Member D needs Member A to expand `GET /api/dashboard?period=today|week|month` response shape with:
+  1. `quotes.awaitingPayment` (count of quotations sent but balance unpaid)
+  2. `tickets.underWarranty` and `tickets.billable` (breakdown of open repair tickets)
+  3. `pipeline` funnel object: `{ enquiries: int, surveyed: int, quoted: int, confirmed: int, installed: int }` for the selected period
+  4. `installations_by_day`: list of `{ day: string, installs: int }` for period completions chart
+  Frontend currently falls back cleanly to "—" or standard seed counts if fields are omitted.
+- [AUDIT] All pages owned by D (`JobsList`, `JobDetail`, `TicketsList`, `NewTicket`, `TicketDetail`, `TechHome`, `JobWorksheet`) have been upgraded to `<ListPage>`, `<RecordPage>`, `<PhonePage>`, `<Card>`, `<DataTable>`, `<Badge>`, and `<Button>`. No raw tables or unstyled buttons remain in D's pages.
+- [AUDIT] For pages to be created by A, B, and C: ensure all list pages wrap `<DataTable>` and `<ListPage>` instead of raw `<table>`, and all status tags use `<Badge status={...} />`.

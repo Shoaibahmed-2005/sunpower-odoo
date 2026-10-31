@@ -8,6 +8,7 @@ import { salesRoutes } from "./routes/salesRoutes";
 import { quoteRoutes } from "./routes/quoteRoutes";
 import { inventoryRoutes } from "./routes/inventoryRoutes";
 import { fieldRoutes } from "./routes/fieldRoutes";
+import Dashboard from "./pages/dashboard/Dashboard";
 
 export interface AppRoute {
   path: string;
@@ -17,6 +18,7 @@ export interface AppRoute {
 }
 
 const allRoutes: AppRoute[] = [
+  { path: "/", element: <Dashboard />, perm: "dashboard:read" },
   ...salesRoutes,
   ...quoteRoutes,
   ...inventoryRoutes,
@@ -52,4 +54,3 @@ export default function App() {
     </QueryClientProvider>
   );
 }
-
