@@ -4,6 +4,7 @@ Owner: D. Gates: close needs customerConfirmed; resolve creates REPAIR invoice i
 
 from datetime import date, datetime, timezone
 from fastapi import APIRouter, Depends
+from pydantic import Field
 from sqlalchemy.orm import Session
 from sqlalchemy import or_
 
@@ -14,7 +15,7 @@ from app.schemas.base import ApiModel
 from app.transitions import assert_transition
 from app.refs import next_ref
 from app.models import (
-    Ticket, TicketStatus, SerialUnit, SerialStatus, Lead, User,
+    Ticket, TicketStatus, SerialUnit, SerialStatus, Lead, User, Role,
     Invoice, InvoiceType, InvoiceStatus,
 )
 
@@ -81,14 +82,14 @@ class TicketDetail(ApiModel):
 
 class CreateTicketRequest(ApiModel):
     serial_unit_id: int
-    issue: str
+    issue: str = Field(min_length=3, max_length=2000)
 
 
 class TransitionRequest(ApiModel):
     to: str
     technician_id: int | None = None
-    parts_cost: int | None = None
-    labour_cost: int | None = None
+    parts_cost: int | None = Field(default=None, ge=0)
+    labour_cost: int | None = Field(default=None, ge=0)
     customer_confirmed: bool | None = None
 
 
@@ -273,52 +274,60 @@ def transition_ticket(
 
     assert_transition("ticket", ticket.status.value, body.to)
 
-    if True:
-        if body.to == "ASSIGNED":
-            # Must provide a technician
-            if not body.technician_id:
-                raise ApiError(400, "Technician is required for assignment")
-            tech = db.get(User, body.technician_id)
-            if not tech:
-                raise ApiError(404, "Technician not found")
-            ticket.technician_id = body.technician_id
-            ticket.status = TicketStatus.ASSIGNED
+    if body.to == "ASSIGNED":
+        # Must provide a technician with role TECHNICIAN
+        if not body.technician_id:
+            raise ApiError(400, "Technician is required for assignment")
+        tech = db.get(User, body.technician_id)
+        if not tech:
+            raise ApiError(404, "Technician not found")
+        if tech.role != Role.TECHNICIAN and tech.role.value != "TECHNICIAN":
+            raise ApiError(400, "Assigned user must have TECHNICIAN role")
+        ticket.technician_id = body.technician_id
+        ticket.status = TicketStatus.ASSIGNED
 
-        elif body.to == "IN_REPAIR":
-            ticket.status = TicketStatus.IN_REPAIR
+    elif body.to == "IN_REPAIR":
+        ticket.status = TicketStatus.IN_REPAIR
 
-        elif body.to == "RESOLVED":
-            parts = body.parts_cost or 0
-            labour = body.labour_cost or 0
-            ticket.parts_cost = parts
-            ticket.labour_cost = labour
-            ticket.resolved_at = datetime.now(timezone.utc)
+    elif body.to == "RESOLVED":
+        parts = body.parts_cost or 0
+        labour = body.labour_cost or 0
+        ticket.parts_cost = parts
+        ticket.labour_cost = labour
+        ticket.resolved_at = datetime.now(timezone.utc)
 
-            if not ticket.under_warranty:
-                # Billable: create a REPAIR invoice
-                bill = parts + labour
-                ticket.bill_amount = bill
-                inv = Invoice(
-                    ref=next_ref(db, "INV"),
-                    lead_id=ticket.lead_id,
-                    ticket_id=ticket.id,
-                    type=InvoiceType.REPAIR,
-                    amount=bill,
-                    status=InvoiceStatus.DUE,
-                    created_at=datetime.now(timezone.utc),
-                )
-                db.add(inv)
-            else:
-                # Under warranty — no charge
-                ticket.bill_amount = 0
+        if not ticket.under_warranty:
+            # Billable: create a REPAIR invoice
+            bill = parts + labour
+            ticket.bill_amount = bill
+            inv = Invoice(
+                ref=next_ref(db, "INV"),
+                lead_id=ticket.lead_id,
+                ticket_id=ticket.id,
+                type=InvoiceType.REPAIR,
+                amount=bill,
+                status=InvoiceStatus.DUE,
+                created_at=datetime.now(timezone.utc),
+            )
+            db.add(inv)
+        else:
+            # Under warranty — no charge
+            ticket.bill_amount = 0
 
-            ticket.status = TicketStatus.RESOLVED
+        ticket.status = TicketStatus.RESOLVED
 
-        elif body.to == "CLOSED":
-            # Gate: customer must confirm
-            if not body.customer_confirmed:
-                raise ApiError(409, "Customer confirmation is required to close the ticket")
-            ticket.customer_confirmed_at = datetime.now(timezone.utc)
-            ticket.status = TicketStatus.CLOSED
+    elif body.to == "CLOSED":
+        # Gate: customer must confirm
+        if not body.customer_confirmed:
+            raise ApiError(409, "Customer confirmation is required to close the ticket")
+        ticket.customer_confirmed_at = datetime.now(timezone.utc)
+        ticket.status = TicketStatus.CLOSED
+
+    try:
+        db.commit()
+        db.refresh(ticket)
+    except Exception:
+        db.rollback()
+        raise
 
     return _build_detail(db, ticket)

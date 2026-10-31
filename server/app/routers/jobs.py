@@ -5,7 +5,7 @@ Owner: D. Gates: no start before dispatch DONE; no finish without signature + ph
 from datetime import datetime, timezone
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from app.db import get_db
 from app.auth import get_current_user, require_perm, has_perm
@@ -66,43 +66,31 @@ class JobDetail(ApiModel):
 # ── Request schemas ───────────────────────────────────────────
 
 class FinishJobRequest(ApiModel):
-    signature: str
-    size_confirmed: float
-    photos: list[str]
+    signature: str = ""
+    size_confirmed: float = Field(default=0, gt=0, le=20)
+    photos: list[str] = []
+
+    @field_validator("signature")
+    @classmethod
+    def validate_signature(cls, v: str) -> str:
+        if not v:
+            return v
+        if not v.startswith("data:image/png;base64,"):
+            raise ValueError("Signature must be a base64 PNG data URL (data:image/png;base64,...)")
+        if len(v.encode("utf-8")) > 500 * 1024:
+            raise ValueError("Signature image must be under 500 KB")
+        return v
 
     @field_validator("photos")
     @classmethod
-    def at_least_one_photo(cls, v):
-        if not v:
-            raise ValueError("Add at least one photo")
+    def validate_photos(cls, v: list[str]) -> list[str]:
+        for u in v:
+            if not (u.startswith("/api/images/") or u.startswith("/uploads/")):
+                raise ValueError("Photo URL must start with /api/images/ or /uploads/")
         return v
 
 
 # ── Helpers ───────────────────────────────────────────────────
-
-def _job_list_query(db: Session):
-    """Base query for job list items."""
-    rows = (
-        db.query(Job, Lead.name, Lead.kw, User.name)
-        .join(Lead, Job.lead_id == Lead.id)
-        .join(User, Job.technician_id == User.id)
-        .order_by(Job.scheduled_date.desc())
-        .all()
-    )
-    return [
-        JobListItem(
-            id=j.id,
-            ref=j.ref,
-            lead_name=ln,
-            kw=kw,
-            technician_name=tn,
-            crew=j.crew,
-            scheduled_date=str(j.scheduled_date),
-            status=j.status.value,
-        )
-        for j, ln, kw, tn in rows
-    ]
-
 
 def _build_detail(db: Session, job: Job) -> JobDetail:
     lead = db.get(Lead, job.lead_id)
@@ -221,6 +209,8 @@ def get_job(
     if not has_perm(user, "jobs:read"):
         if not (has_perm(user, "jobs:mine") and job.technician_id == user.id):
             raise ApiError(403, "Not your job")
+    if user.role.value == "TECHNICIAN" and job.technician_id != user.id:
+        raise ApiError(403, "Not your job")
     return _build_detail(db, job)
 
 

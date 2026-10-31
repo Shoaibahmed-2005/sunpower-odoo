@@ -21,7 +21,7 @@ const MENU_GROUPS: MenuDropdown[] = [
     title: "Sales",
     items: [
       { to: "/leads", label: "Enquiries", perm: "leads:read" },
-      { to: "/surveys", label: "Surveys", perm: "surveys:read" },
+      { to: "/surveys", label: "Surveys", perm: "surveys:approve" },
       { to: "/quotations", label: "Quotations", perm: "quotes:read" },
     ],
   },
@@ -101,7 +101,7 @@ export default function Layout() {
       <div className="flex items-center justify-center min-h-screen bg-bg">
         <div className="flex flex-col items-center gap-3">
           <div className="w-9 h-9 border-3 border-primary border-t-transparent rounded-full animate-spin" />
-          <p className="text-xs text-muted font-medium">Loading Kiran…</p>
+          <p className="text-xs text-muted font-medium">Loading SunPower…</p>
         </div>
       </div>
     );

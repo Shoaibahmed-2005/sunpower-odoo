@@ -230,3 +230,40 @@
 
 ### client/src/pages/Styleguide.tsx
 **Purpose:** Dedicated component showcase route (`/styleguide`) documenting all buttons, badges, status bars, form fields, cards, tables, and phone layouts.
+
+---
+
+### WP1: Core Gate Fixes & Permissions (Member D)
+
+#### client/src/components/RequirePerm.tsx
+**Purpose:** Route guard for role-based permissions.
+**Rules enforced:** While authentication status is resolving (`loading=true`), displays a centered brand spinner rather than triggering premature 403 or redirect. If unauthenticated, navigates to `/login` with `replace`. If user lacks the required permission, renders `<Forbidden />`.
+**Security:** Prevents flash of forbidden content and unauthorized access.
+
+#### server/app/routers/tickets.py (WP1 Updates)
+**Purpose:** Service ticket transition and cost tracking.
+**Rules enforced:**
+- `transition_ticket`: Cleaned transition execution block; requires assigned user to hold `TECHNICIAN` role (`400` if not a technician); persists transitions immediately via `db.commit()` and `db.refresh(ticket)` with rollback handling.
+- `CreateTicketRequest.issue`: Validated 3–2000 characters via Pydantic `Field(min_length=3, max_length=2000)`.
+- `TransitionRequest`: `parts_cost` and `labour_cost` must be non-negative via `Field(ge=0)`.
+
+#### server/app/routers/jobs.py (WP1 Updates)
+**Purpose:** Rooftop solar installation jobs.
+**Rules enforced:**
+- `get_job`: Allows staff with `jobs:read` OR technicians with `jobs:mine` for their own assigned job; returns `403` otherwise.
+- `FinishJobRequest`: System size must be positive and realistic (`Field(gt=0, le=20)`); signature must be a valid `"data:image/png;base64,"` payload under 500 KB; photos must start with `"/api/images/"` or `"/uploads/"`.
+- Removed dead `_job_list_query` helper.
+
+#### server/app/tests/test_member_d.py
+**Purpose:** Automated verification of job gates and ticket lifecycle transitions.
+**Rules enforced:** Uses isolated in-memory SQLite database (`StaticPool`) to guarantee zero interference with team database tables.
+**Test suite coverage:**
+1. Start job rejected with 409 before dispatch is marked DONE.
+2. Finish job rejected with 409 without customer signature.
+3. Finish job rejected with 409 without at least one photo.
+4. Expired warranty ticket resolve creates billable REPAIR invoice with parts + labour.
+5. Under-warranty ticket resolve sets bill_amount = 0 and creates no invoice.
+6. Closing ticket strictly requires customer confirmation (`409`).
+7. Ticket state transition persists across subsequent API requests.
+8. Technician can access only their own assigned job (`403` on others), while Sales/Admin can view any job.
+
