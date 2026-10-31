@@ -1,5 +1,7 @@
-// Owned by C — placeholder stub so the shell compiles.
-// C replaces with the full query key map from §9.
+/**
+ * Central query keys definition for TanStack React Query.
+ * Owner: C (BUILD_PLAN §9).
+ */
 export const qk = {
   me: ["me"],
   dashboard: (p: string) => ["dashboard", p],
@@ -22,5 +24,5 @@ export const qk = {
   tickets: ["tickets"],
   ticket: (id: number) => ["ticket", id],
   lookup: (q: string) => ["lookup", q],
+  profit: (from: string, to: string) => ["reports", "profit", from, to],
 };
-

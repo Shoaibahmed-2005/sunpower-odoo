@@ -11,6 +11,7 @@ import { fieldRoutes } from "./routes/fieldRoutes";
 import Dashboard from "./pages/dashboard/Dashboard";
 import TechHome from "./pages/mobile/TechHome";
 import JobWorksheet from "./pages/mobile/JobWorksheet";
+import Login from "./pages/auth/Login";
 
 export interface AppRoute {
   path: string;
@@ -20,7 +21,6 @@ export interface AppRoute {
 }
 
 const allRoutes: AppRoute[] = [
-  { path: "/", element: <Dashboard />, perm: "dashboard:read" },
   ...salesRoutes,
   ...quoteRoutes,
   ...inventoryRoutes,
@@ -34,7 +34,7 @@ export default function App() {
         <BrowserRouter>
           <Routes>
             {/* Login is outside Layout — owned by C */}
-            <Route path="/login" element={<div>Login page — owned by C</div>} />
+            <Route path="/login" element={<Login />} />
 
             {/* Mobile /m routes have their own PhoneLayout, render directly */}
             <Route
