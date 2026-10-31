@@ -8,3 +8,5 @@
 - [DEP] D needs B to create: `client/src/routes/salesRoutes.tsx`. D will create an empty placeholder.
 - [DEP] D needs C to create: `client/src/routes/quoteRoutes.tsx`. D will create an empty placeholder.
 - [DEP] D needs A to create: `client/src/routes/inventoryRoutes.tsx`. D will create an empty placeholder.
+- [CONTRACT] A → B: in `auth.get_current_user`, call `db.commit()` right after loading the user. Reason: loading the user auto-starts a transaction on the request's session, so any later `with db.begin():` in a router (validate, confirm, payment) raises "A transaction is already begun". Committing a read is harmless and `expire_on_commit=False` keeps the user loaded. (Verified with a test script.)
+- [DONE] A: Phase 0 scaffold is on main: root `package.json`, `server/pyproject.toml`, `.env.example`, `config.py`, `db.py`, `errors.py`, `schemas/base.py`, `main.py` (all routers registered), `models.py`, `seed.py` v1.

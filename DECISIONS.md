@@ -6,3 +6,7 @@
 - [D] Logo-mark is a center square crop of the full logo (includes sun + text since the sun alone can't be cleanly isolated from the rays).
 - [D] Favicon is 64×64 PNG rendered from the logo-mark.
 - [D] Single inspiration image (wireframe collage) renamed to `01-sidebar-dashboard-wireframes.jpg`.
+- [A] Each router sets its own prefix in its `APIRouter(prefix=...)` and `main.py` adds none (matches D's `prefix="/api/jobs"`). Routers whose paths cross areas use `prefix="/api"` and write full paths (`/leads/{id}/quotation` lives in quotations.py, `/public/enquiries` in leads.py, `/reports/profit` in dashboard.py).
+- [A] `config.py` reads `server/.env` with a 10-line loader instead of adding pydantic-settings/python-dotenv (the §2 stack has neither). Real environment variables override `.env`.
+- [A] Seed subsidy is on-grid only (₹30,000/kW up to 2 kW, ₹78,000 from 3 kW); off-grid packages get 0, since the rooftop subsidy applies to grid-connected systems.
+- [A] Enums are `str, Enum`, so `role.value == "DIRECTOR"` and Pydantic returns the plain name.
