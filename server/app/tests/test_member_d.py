@@ -52,7 +52,7 @@ def fresh_db():
     Base.metadata.create_all(engine)
     with TestSession() as db:
         pw = hash_password(PASSWORD)
-        ravi = User(name="Ravi", login_id="ravi", password_hash=pw, role=Role.DIRECTOR)
+        ravi = User(name="Ravi", login_id="ravi", password_hash=pw, role=Role.ADMIN)
         priya = User(name="Priya", login_id="priya", password_hash=pw, role=Role.SALES)
         vikram = User(name="Vikram", login_id="vikram", password_hash=pw, role=Role.TECHNICIAN)
         arjun = User(name="Arjun", login_id="arjun", password_hash=pw, role=Role.TECHNICIAN)
