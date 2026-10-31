@@ -187,3 +187,46 @@
 
 ### server/app/tests/test_member_d.py
 **Purpose:** Test plan for D's gates. Placeholder until A's scaffold exists. 6 tests covering start/finish gates, warranty billing, and close confirmation.
+
+
+---
+
+### client/src/components/Card.tsx
+**Purpose:** Canonical container box with subtle border, soft shadow, optional Lucide icon in tinted circle, header row, and hover state.
+**Rules enforced:** Uses `--surface`, `--border`, `--radius-lg`, `--shadow-card`. Clickable cards get hover transitions.
+
+---
+
+### client/src/components/ListPage.tsx
+**Purpose:** Reusable list page template bundling `<PageHeader>`, filter chips/toolbar, and `<DataTable>` / Kanban toggle.
+**Rules enforced:** Self-enforcing standard structure across all list pages in the app.
+
+---
+
+### client/src/components/RecordPage.tsx
+**Purpose:** Standard single-record template combining `<PageHeader>`, actions, Odoo-style `<StatusBar>`, a key summary strip, and `<Card>` sections.
+**Rules enforced:** Guarantees uniform layout, spacing, and summary metrics on all detail/edit screens.
+
+---
+
+### client/src/components/DashboardPage.tsx
+**Purpose:** Standard dashboard template with header, time toggle, 4-card KPI row, and modular card grid.
+**Rules enforced:** Ensures KPI metrics and needs-attention sections conform to brand typography and card layout.
+
+---
+
+### client/src/components/PhonePage.tsx
+**Purpose:** Specialized mobile template wrapping `<PhoneLayout>` with sunlight-readable contrast, 48px touch targets, and a sticky primary action button.
+**Rules enforced:** Mobile technician screens adhere strictly to the 48px button height and large legible font size rules (§9).
+
+---
+
+### client/src/pages/dashboard/Dashboard.tsx
+**Purpose:** Director & staff operational dashboard featuring 4 KPI cards (Booked, Collected, Due, Open Repairs), "Needs Immediate Attention" actionable links to filtered lists, horizontal Sales Pipeline conversion funnel, top 5 audited Profit-Per-Job table (highlighting negative margin jobs in danger color per §8.3), and a Recharts daily completions bar chart.
+**Rules enforced:** All counts deep-link to filtered lists (e.g. `/surveys?status=SUBMITTED`, `/dispatches?status=READY`). Indian Rupee formatting (`formatINR`) used everywhere.
+**Libraries:** `recharts` (BarChart, Bar, ResponsiveContainer, Tooltip, XAxis, YAxis), `lucide-react`.
+
+---
+
+### client/src/pages/Styleguide.tsx
+**Purpose:** Dedicated component showcase route (`/styleguide`) documenting all buttons, badges, status bars, form fields, cards, tables, and phone layouts.
