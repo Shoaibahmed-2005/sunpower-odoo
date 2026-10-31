@@ -8,3 +8,4 @@
 - [DEP] D needs B to create: `client/src/routes/salesRoutes.tsx`. D will create an empty placeholder.
 - [DEP] D needs C to create: `client/src/routes/quoteRoutes.tsx`. D will create an empty placeholder.
 - [DEP] D needs A to create: `client/src/routes/inventoryRoutes.tsx`. D will create an empty placeholder.
+
