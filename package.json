@@ -1,5 +1,5 @@
 {
-  "name": "kiran",
+  "name": "sunpower",
   "private": true,
   "scripts": {
     "dev": "concurrently -n api,web \"npm:dev:api\" \"npm:dev:web\"",

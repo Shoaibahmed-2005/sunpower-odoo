@@ -18,7 +18,7 @@ from app.routers import (
     users,
 )
 
-app = FastAPI(title="Kiran API")
+app = FastAPI(title="SunPower API")
 register_error_handlers(app)
 
 # Each router sets its own prefix inside its file ("/api" or e.g. "/api/jobs"),
