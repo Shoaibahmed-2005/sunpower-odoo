@@ -165,7 +165,7 @@ def _build_detail(db: Session, quote: Quotation) -> QuotationDetail:
             created_at=inv.created_at.isoformat(),
             paid_at=inv.paid_at.isoformat() if inv.paid_at else None,
         )
-        for inv in sorted(quote.invoices, key=lambda x: x.created_at)
+        for inv in sorted(quote.invoices, key=lambda x: x.id)
     ]
 
     return QuotationDetail(

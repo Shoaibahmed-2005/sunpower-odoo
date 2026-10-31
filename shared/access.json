@@ -1,5 +1,5 @@
 {
-  "DIRECTOR":   ["*"],
+  "ADMIN":      ["*"],
   "SALES":      ["dashboard:read", "leads:read", "leads:write", "surveys:read", "surveys:approve",
                  "quotes:read", "quotes:write", "invoices:read", "invoices:write",
                  "packages:read", "stock:read", "jobs:read", "users:read"],

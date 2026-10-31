@@ -10,7 +10,7 @@ import Button from "../../components/Button";
 import { toast } from "../../components/Toast";
 
 const landingPages: Record<string, string> = {
-  DIRECTOR: "/",
+  ADMIN: "/",
   SALES: "/leads",
   TECHNICIAN: "/m",
   WAREHOUSE: "/dispatches",
@@ -19,7 +19,7 @@ const landingPages: Record<string, string> = {
 
 const DEMO_USERS = [
   { label: "Priya (Sales)", loginId: "priya", role: "SALES" },
-  { label: "Ravi (Director)", loginId: "ravi", role: "DIRECTOR" },
+  { label: "Admin", loginId: "admin", role: "ADMIN" },
   { label: "Vikram (Tech)", loginId: "vikram", role: "TECHNICIAN" },
   { label: "Deepa (Warehouse)", loginId: "deepa", role: "WAREHOUSE" },
   { label: "Farhan (Support)", loginId: "farhan", role: "SUPPORT" },

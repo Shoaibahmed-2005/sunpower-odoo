@@ -23,7 +23,7 @@
 - [BUG] D: `DataTable` accepts the `kanban` prop but never renders a board. A's Dispatches page already passes `kanban={{groupBy:"status", ...}}`.
 - [BUG] D: `Layout` menu is a fixed list, so routes' `menu` entries are ignored: A's `/stock`, `/serials`, `/reports/profit` don't appear. Please build the menu from the route arrays (or add those three).
 - [CONTRACT] A → C: please add `profit: (from: string, to: string) => ["reports", "profit", from, to]` to `lib/queryKeys.ts`; ProfitReport uses that key inline until then.
-- [CONTRACT] A → B: `require_perm("reports:read")` is used for the profit report; only the Director's `"*"` passes it (no role lists it).
+- [CONTRACT] A → B: `require_perm("reports:read")` is used for the profit report; only the Admin's `"*"` passes it (no role lists it).
 - [DONE] C: Added `profit` query key to `lib/queryKeys.ts` per A's request.
 - [DONE] C: Created `client/src/api/client.ts`, `lib/queryClient.ts`, `lib/queryKeys.ts`, `lib/format.ts`, `auth/AuthContext.tsx`, `pages/auth/Login.tsx`, `pages/quotes/QuotationList.tsx`, `pages/quotes/QuotationForm.tsx`, `pages/accounts/InvoicesList.tsx`, and `routes/quoteRoutes.tsx`.
 - [DONE] C: Created `server/app/transitions.py`, `routers/quotations.py`, `routers/invoices.py`, `shared/access.json`, `app/auth.py`, `app/refs.py`, and `app/tests/test_quotations.py`.

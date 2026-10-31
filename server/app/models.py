@@ -15,10 +15,10 @@ def utcnow() -> datetime:
     return datetime.now(timezone.utc)
 
 
-# ---------- Enums (str, so role.value == "DIRECTOR" and JSON shows the name) ----------
+# ---------- Enums (str, so role.value == "ADMIN" and JSON shows the name) ----------
 
 class Role(str, enum.Enum):
-    DIRECTOR = "DIRECTOR"
+    ADMIN = "ADMIN"
     SALES = "SALES"
     TECHNICIAN = "TECHNICIAN"
     WAREHOUSE = "WAREHOUSE"

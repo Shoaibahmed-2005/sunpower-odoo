@@ -35,7 +35,7 @@ def fresh_db():
     with TestSession() as db:
         pw = hash_password(PASSWORD)
         db.add_all([User(name=n, login_id=l, password_hash=pw, role=r) for n, l, r in [
-            ("Ravi", "ravi", Role.DIRECTOR), ("Priya", "priya", Role.SALES),
+            ("Admin", "admin", Role.ADMIN), ("Priya", "priya", Role.SALES),
             ("Vikram", "vikram", Role.TECHNICIAN), ("Arjun", "arjun", Role.TECHNICIAN),
             ("Deepa", "deepa", Role.WAREHOUSE)]])
         db.add_all([Counter(key=k, next=1) for k in ["ENQ", "SRV", "SQ", "JOB", "SP/OUT", "TKT", "INV"]])
@@ -232,10 +232,10 @@ def test_reject_sends_lead_back_to_qualified():
     assert sales.get(f"/api/leads/{lead_id}").json()["stage"] == "QUALIFIED"
 
 
-def test_director_can_create_users_sales_cannot():
+def test_admin_can_create_users_sales_cannot():
     body = {"name": "New Tech", "loginId": "newtech", "password": "longpass1", "role": "TECHNICIAN", "hourlyRate": 400}
     assert client_as("priya").post("/api/users", json=body).status_code == 403
-    d = client_as("ravi")
+    d = client_as("admin")
     assert d.post("/api/users", json=body).status_code == 201
     assert d.post("/api/users", json=body).status_code == 409
     techs = d.get("/api/users", params={"role": "TECHNICIAN"}).json()

@@ -122,7 +122,7 @@ def get_survey(survey_id: int, user: User = Depends(require_perm("surveys:read")
 @router.patch("/{survey_id}/submit", response_model=SurveyDetail)
 def submit_survey(survey_id: int, body: SubmitIn, user: User = Depends(require_perm("surveys:submit")),
                   db: Session = Depends(get_db)):
-    """surveys:submit (assigned technician, or Director). SCHEDULED → SUBMITTED; 409 if already submitted.
+    """surveys:submit (assigned technician, or Admin). SCHEDULED → SUBMITTED; 409 if already submitted.
     Limits: tilt 0-60°, cable 1-150 m, area > 0, photos only from /uploads."""
     try:
         survey = load_survey(db, survey_id, user, lock=True)
@@ -140,7 +140,7 @@ def submit_survey(survey_id: int, body: SubmitIn, user: User = Depends(require_p
 @router.post("/{survey_id}/approve", response_model=SurveyDetail)
 def approve_survey(survey_id: int, user: User = Depends(require_perm("surveys:approve")),
                    db: Session = Depends(get_db)):
-    """surveys:approve (Sales, Director). SUBMITTED → APPROVED and lead → SURVEY_APPROVED in one transaction.
+    """surveys:approve (Sales, Admin). SUBMITTED → APPROVED and lead → SURVEY_APPROVED in one transaction.
     This is what unlocks "Create quotation". 409 if not SUBMITTED (also stops a double click)."""
     try:
         # lock the survey row so two quick clicks can't both approve

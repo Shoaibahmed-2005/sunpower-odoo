@@ -1,4 +1,4 @@
-// Owned by A — Director's profit per finished job: revenue − parts − labour − free warranty repairs.
+// Owned by A — Admin's profit per finished job: revenue − parts − labour − free warranty repairs.
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";

@@ -7,7 +7,7 @@ New enquiry (web form, call, WhatsApp) → qualifying call → schedule a roof s
 
 ### shared/access.json
 Purpose: one file that says which role can do what. The backend (`require_perm`) and the frontend menu both read it, so they can never disagree.
-- `"*"` means everything (Director). Permissions are `area:action`, e.g. `leads:write`.
+- `"*"` means everything (Admin). Permissions are `area:action`, e.g. `leads:write`.
 - Likely questions: *Why one shared file?* Single source of truth. *Is hiding the menu enough?* No, it's UX only; the API returns 403.
 
 ### server/app/auth.py
@@ -33,7 +33,7 @@ Purpose: references like `ENQ/0007`.
 
 ### server/app/routers/users.py
 - `GET /api/users?role=TECHNICIAN` (`users:read`): active users for dropdowns; only id, name, role.
-- `POST /api/users` (Director only, via `"*"`): no public sign-up. login id pattern `^[a-z][a-z0-9.]{2,29}$`, password ≥ 8, 409 if the id is taken.
+- `POST /api/users` (Admin only, via `"*"`): no public sign-up. login id pattern `^[a-z][a-z0-9.]{2,29}$`, password ≥ 8, 409 if the id is taken.
 
 ### server/app/routers/leads.py
 - **Validation (Pydantic)**: name 2–100, phone cleaned to 10 digits starting 6–9 (`+91` and spaces accepted), address 5–300, kW 1–5, bill 1–10,00,000, enums for source and system type. Bad input → 400 with the field name.
@@ -54,7 +54,7 @@ Purpose: references like `ENQ/0007`.
 - `POST /api/surveys/{id}/reject`: reason required; survey → REJECTED; lead → QUALIFIED so a new survey can be booked.
 
 ### server/tests/test_b_auth_leads_surveys.py (17 tests)
-401 without cookie, 401 with a forged cookie, same message for wrong password and unknown id, httpOnly cookie, 403 for a technician on `/api/leads`, logout, phone/kW validation, references ENQ/0001 then ENQ/0002, search, qualify rule, schedule gate, public form + honeypot, mark lost twice, full survey flow unlocking `canQuote`, technician isolation, measurement and photo-URL validation, reject flow, only the Director creates users.
+401 without cookie, 401 with a forged cookie, same message for wrong password and unknown id, httpOnly cookie, 403 for a technician on `/api/leads`, logout, phone/kW validation, references ENQ/0001 then ENQ/0002, search, qualify rule, schedule gate, public form + honeypot, mark lost twice, full survey flow unlocking `canQuote`, technician isolation, measurement and photo-URL validation, reject flow, only the Admin creates users.
 Demo trick: delete the stage check in `schedule_survey`, run the tests, watch `test_schedule_survey_requires_qualified_and_a_technician` fail, put it back.
 
 ### Frontend
@@ -74,3 +74,38 @@ Demo trick: delete the stage check in `schedule_survey`, run the tests, watch `t
 3. Why is "Create quotation" safe even if someone enables the button in DevTools? (C's endpoint re-checks the approved survey and returns 409)
 4. How are passwords stored and checked? (bcrypt, salt, cost 12, dummy hash for unknown ids)
 5. What stops two people getting the same ENQ number? (atomic UPDATE … RETURNING inside the transaction + UNIQUE)
+
+
+---
+
+### WP2: Admin role and user management (`server/app/routers/users.py`, `client/src/pages/admin/UsersPage.tsx`)
+Purpose: Implement Admin role across the entire system, and provide full staff user lifecycle management (create, list, assign roles, deactivate/reactivate, password reset).
+
+Endpoints added / updated:
+- `GET /api/users` (`users:read`): returns active users list for dropdowns (id, name, role).
+- `GET /api/users/all` (`users:write`): returns all staff users (including inactive) with credentials metadata (id, name, loginId, role, hourlyRate, active, createdAt).
+- `POST /api/users` (`users:write`): creates a new staff user with bcrypt password hash. Validates login ID pattern `^[a-z][a-z0-9.]{2,29}$`, password min 8 chars, hourly rate 0–10000. 409 if login ID is duplicate.
+- `PATCH /api/users/{id}` (`users:write`): updates name, role, hourlyRate, or active status.
+  - Guard: row lock (`with_for_update=True`).
+  - Guard: 404 if user not found.
+  - Guard: at least one active admin required (409 "At least one active admin is required" if deactivating or changing role of the last active admin).
+  - Guard: an admin cannot demote or deactivate themself (409 "You cannot change your own role", 409 "You cannot deactivate your own account").
+- `POST /api/users/{id}/reset-password` (`users:write`): sets a new password (min 8 chars) hashed with bcrypt. 204 No Content; never returns the hash.
+
+Rules & Security enforced:
+- Staff users are never deleted from the database ("remove" = `active=false`). This preserves audit trails, past enquiries, and job history.
+- Immediate session termination: `get_current_user` re-validates `user.active` on every request, so deactivated users receive 401 on their very next request without waiting for token expiry.
+- Role changes take effect immediately on the next request because `get_current_user` loads the user from the database.
+- Self-protection: Admins cannot demote or deactivate their own accounts from the UI or the API.
+- Zero-admin prevention: The database count of active admins prevents reducing the number of active admins below 1.
+
+Frontend:
+- `client/src/pages/admin/UsersPage.tsx` at route `/admin/users` (permission `users:write`).
+- Menu entry: "Settings › Users & Roles" in `Layout.tsx`.
+- Displays all users with role badge, hourly rate, and active/inactive status.
+- Add User panel for creating staff accounts.
+- Per-row actions: change role select, Deactivate / Reactivate button, Reset Password modal.
+- Own row actions are disabled with tooltips ("You cannot change your own role", "You cannot deactivate your own account").
+
+Tests:
+- `server/tests/test_admin_users.py`: validates 403 for non-admins on all admin endpoints, user creation, duplicate checks, role updates, deactivation (401 on login and existing cookie), reactivation, password reset, self-protection guards, and last active admin protection.

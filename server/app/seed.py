@@ -48,7 +48,7 @@ COUNTER_KEYS = ["ENQ", "SRV", "SQ", "JOB", "SP/OUT", "TKT", "INV"]
 
 USERS = [
     # login_id, name, role, hourly_rate
-    ("ravi", "Ravi Menon", Role.DIRECTOR, 0),
+    ("admin", "Admin", Role.ADMIN, 0),
     ("priya", "Priya Shah", Role.SALES, 0),
     ("karan", "Karan Mehta", Role.SALES, 0),
     ("vikram", "Vikram Rao", Role.TECHNICIAN, 400),
