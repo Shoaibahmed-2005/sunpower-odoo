@@ -1,16 +1,17 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useParams, useNavigate } from "react-router-dom";
 import api from "../../api/client";
 import { qk } from "../../lib/queryKeys";
 import { formatDateTime } from "../../lib/format";
-import PhoneLayout from "../../components/PhoneLayout";
+import PhonePage from "../../components/PhonePage";
+import Card from "../../components/Card";
 import SignaturePad from "../../components/SignaturePad";
 import Badge from "../../components/Badge";
 import Button from "../../components/Button";
 import Field from "../../components/Field";
 import { toast } from "../../components/Toast";
-import { Camera } from "lucide-react";
+import { Camera, CheckCircle2, Play, Check, ArrowLeft, AlertCircle } from "lucide-react";
 
 export default function JobWorksheet() {
   const { id } = useParams<{ id: string }>();
@@ -37,8 +38,11 @@ export default function JobWorksheet() {
   const startJob = useMutation({
     mutationFn: () => api.post(`/jobs/${id}/start`),
     onSuccess: () => {
-      toast.success("Job started");
+      toast.success("Job started successfully");
       invalidateAll();
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.error || "Cannot start job");
     },
   });
 
@@ -50,9 +54,12 @@ export default function JobWorksheet() {
         photos,
       }),
     onSuccess: () => {
-      toast.success("Job completed!");
+      toast.success("Installation completed!");
       invalidateAll();
       navigate("/m");
+    },
+    onError: (err: any) => {
+      toast.error(err?.response?.data?.error || "Cannot finish job");
     },
   });
 
@@ -65,129 +72,231 @@ export default function JobWorksheet() {
       form.append("file", file);
       const r = await api.post("/uploads", form);
       setPhotos((prev) => [...prev, r.data.url]);
-      toast.success("Photo uploaded");
+      toast.success("Site photo uploaded");
     } catch {
-      toast.error("Upload failed");
+      toast.error("Photo upload failed");
     } finally {
       setUploading(false);
     }
   };
 
-  if (isLoading || !job) return <PhoneLayout title="Loading…"><p className="text-muted">Loading…</p></PhoneLayout>;
+  if (isLoading || !job) {
+    return (
+      <PhonePage title="Loading…" subtitle="Technician Worksheet">
+        <div className="py-12 text-center text-muted">
+          <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+          <p className="text-sm">Loading task details…</p>
+        </div>
+      </PhonePage>
+    );
+  }
 
-  const canStart = job.status === "DISPATCHED" && job.dispatchStatus === "DONE";
+  const isDispatched = job.status === "DISPATCHED";
+  const isDispatchDone = job.dispatchStatus === "DONE";
+  const canStart = isDispatched && isDispatchDone;
   const isInProgress = job.status === "IN_PROGRESS";
   const isDone = job.status === "DONE";
-  const canFinish = isInProgress && signature && photos.length > 0 && sizeConfirmed;
+
+  const canFinish =
+    isInProgress &&
+    Boolean(signature) &&
+    photos.length > 0 &&
+    Boolean(sizeConfirmed && Number(sizeConfirmed) > 0);
+
+  let finishDisabledReason = "";
+  if (!sizeConfirmed || Number(sizeConfirmed) <= 0) {
+    finishDisabledReason = "Confirm system size in kW";
+  } else if (photos.length === 0) {
+    finishDisabledReason = "Upload at least one installation photo";
+  } else if (!signature) {
+    finishDisabledReason = "Customer signature required";
+  }
 
   return (
-    <PhoneLayout title={`Job ${job.ref}`}>
-      {/* Status */}
-      <div className="flex items-center gap-2 mb-4">
-        <Badge status={job.status} />
-        {job.dispatchStatus && <Badge status={`Dispatch: ${job.dispatchStatus}`} />}
+    <PhonePage
+      title={`Job ${job.ref}`}
+      subtitle={`${job.leadName} • ${job.kw} kW`}
+      headerAction={
+        <button
+          type="button"
+          onClick={() => navigate("/m")}
+          className="text-white/80 hover:text-white p-1"
+          title="Back to my tasks"
+        >
+          <ArrowLeft className="w-5 h-5" />
+        </button>
+      }
+      primaryActionLabel={
+        isInProgress
+          ? "Complete & Finish Job"
+          : isDispatched
+          ? "Start Installation"
+          : undefined
+      }
+      primaryActionIcon={isInProgress ? Check : isDispatched ? Play : undefined}
+      onPrimaryAction={
+        isInProgress
+          ? () => finishJob.mutate()
+          : isDispatched
+          ? () => startJob.mutate()
+          : undefined
+      }
+      primaryActionDisabled={isInProgress ? !canFinish : isDispatched ? !canStart : false}
+      primaryActionDisabledReason={
+        isInProgress
+          ? finishDisabledReason
+          : isDispatched && !canStart
+          ? "Dispatch must be marked DONE in warehouse before starting"
+          : undefined
+      }
+      primaryActionLoading={isInProgress ? finishJob.isPending : startJob.isPending}
+    >
+      {/* Status Strip */}
+      <div className="flex items-center justify-between gap-2 p-3 bg-surface rounded-card border border-border shadow-xs">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted font-medium">Job Status:</span>
+          <Badge status={job.status} size="sm" />
+        </div>
+        <div className="flex items-center gap-1.5 text-xs text-muted">
+          <span>Dispatch:</span>
+          <Badge status={job.dispatchStatus || "NOT_READY"} size="sm" />
+        </div>
       </div>
 
-      {/* Customer info */}
-      <div className="bg-surface border border-border rounded-card p-4 mb-4">
-        <p className="font-medium text-lg">{job.leadName}</p>
-        <p className="text-sm text-muted">{job.leadPhone}</p>
-        <p className="text-sm text-muted">{job.leadAddress}</p>
-        <p className="text-sm mt-2">{job.kw} kW {job.systemType?.replace(/_/g, " ")}</p>
-      </div>
+      {/* Customer Info Card */}
+      <Card title="Customer & Site">
+        <div className="space-y-1.5 text-sm">
+          <p className="font-heading text-base font-bold text-text">
+            {job.leadName}
+          </p>
+          <p className="font-mono text-xs text-muted">{job.leadPhone}</p>
+          <p className="text-xs text-text">{job.leadAddress}</p>
+          <p className="text-xs font-semibold text-primary mt-1">
+            {job.kw} kW • {job.systemType?.replace(/_/g, " ")}
+          </p>
+        </div>
+      </Card>
 
-      {/* Times */}
+      {/* Execution Timestamps */}
       {job.startedAt && (
-        <div className="bg-surface border border-border rounded-card p-4 mb-4">
-          <p className="text-sm"><span className="text-muted">Started:</span> {formatDateTime(job.startedAt)}</p>
-          {job.finishedAt && (
-            <p className="text-sm"><span className="text-muted">Finished:</span> {formatDateTime(job.finishedAt)}</p>
-          )}
+        <Card title="Time Tracking">
+          <div className="text-xs space-y-1">
+            <p>
+              <span className="text-muted">Started:</span>{" "}
+              <strong>{formatDateTime(job.startedAt)}</strong>
+            </p>
+            {job.finishedAt && (
+              <p>
+                <span className="text-muted">Completed:</span>{" "}
+                <strong>{formatDateTime(job.finishedAt)}</strong>
+              </p>
+            )}
+          </div>
+        </Card>
+      )}
+
+      {/* Dispatch Gate Alert (if DISPATCHED but not DONE) */}
+      {isDispatched && !isDispatchDone && (
+        <div className="p-3.5 bg-warning/10 border border-warning/30 rounded-card flex items-start gap-2.5 text-xs text-warning leading-relaxed">
+          <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
+          <div>
+            <strong>Gate Locked:</strong> Warehouse has not completed serial scanning & validate for this dispatch yet. You cannot start the roof installation until materials are validated.
+          </div>
         </div>
       )}
 
-      {/* Start button */}
-      {job.status === "DISPATCHED" && (
-        <div className="mb-4">
-          <Button
-            onClick={() => startJob.mutate()}
-            loading={startJob.isPending}
-            disabled={!canStart}
-            className="w-full h-control-lg text-base"
-          >
-            {canStart ? "Start Job" : "Waiting for dispatch…"}
-          </Button>
-          {!canStart && (
-            <p className="text-xs text-warning mt-1">Dispatch must be completed first</p>
-          )}
-        </div>
-      )}
-
-      {/* Worksheet — visible when IN_PROGRESS */}
+      {/* Active Worksheet Controls (when IN_PROGRESS) */}
       {isInProgress && (
         <div className="space-y-4">
-          {/* Size confirmed */}
-          <Field label="System Size Confirmed (kW)">
-            <input
-              type="number"
-              step="0.1"
-              min="0.1"
-              value={sizeConfirmed}
-              onChange={(e) => setSizeConfirmed(e.target.value)}
-              className="w-full h-control-lg rounded-sm border border-border bg-surface px-3 text-base outline-none focus:border-primary"
-              placeholder="e.g. 3.0"
-            />
-          </Field>
+          <Card title="1. Confirmed System Capacity">
+            <Field
+              label="Actual Installed Capacity (kW)"
+              required
+              hint={`Quote was for ${job.kw} kW`}
+            >
+              <input
+                type="number"
+                step="0.1"
+                min="0.1"
+                value={sizeConfirmed}
+                onChange={(e) => setSizeConfirmed(e.target.value)}
+                placeholder={`e.g. ${job.kw}`}
+                className="w-full h-12 rounded-md border border-border bg-surface px-4 text-base font-bold outline-none focus:border-primary focus:ring-2 focus:ring-primary/10"
+              />
+            </Field>
+          </Card>
 
-          {/* Photo upload */}
-          <div>
-            <p className="text-[13px] font-medium text-muted mb-1.5">Photos</p>
-            <div className="flex flex-wrap gap-2 mb-2">
-              {photos.map((url, i) => (
-                <img key={i} src={url} alt={`Photo ${i + 1}`} className="w-20 h-20 object-cover rounded-md border border-border" />
-              ))}
-            </div>
-            <label className="inline-flex items-center gap-2 h-control-lg px-4 rounded-md border border-border bg-surface text-sm font-medium cursor-pointer hover:bg-surface-2">
-              <Camera className="w-5 h-5" />
-              {uploading ? "Uploading…" : "Add Photo"}
-              <input type="file" accept="image/*" capture="environment" onChange={handlePhotoUpload} className="hidden" />
-            </label>
-          </div>
+          <Card title="2. Roof Installation Photos">
+            <Field
+              label="Upload Site Proof Photos"
+              required
+              hint="Panels mounted, inverter wiring, earthing rod"
+            >
+              <div className="space-y-3">
+                {photos.length > 0 && (
+                  <div className="grid grid-cols-3 gap-2">
+                    {photos.map((url, i) => (
+                      <img
+                        key={i}
+                        src={url}
+                        alt={`Roof Photo ${i + 1}`}
+                        className="w-full h-20 object-cover rounded-md border border-border shadow-xs"
+                      />
+                    ))}
+                  </div>
+                )}
+                <label className="flex items-center justify-center gap-2 h-12 px-4 rounded-md border-2 border-dashed border-border hover:border-primary bg-surface text-sm font-semibold text-text cursor-pointer transition-colors">
+                  <Camera className="w-5 h-5 text-primary" />
+                  <span>{uploading ? "Uploading Photo…" : "Capture / Upload Photo"}</span>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handlePhotoUpload}
+                    disabled={uploading}
+                    className="hidden"
+                  />
+                </label>
+              </div>
+            </Field>
+          </Card>
 
-          {/* Signature */}
-          <div>
-            <p className="text-[13px] font-medium text-muted mb-1.5">Customer Signature</p>
-            <SignaturePad onChange={setSignature} />
-          </div>
-
-          {/* Finish */}
-          <Button
-            onClick={() => finishJob.mutate()}
-            loading={finishJob.isPending}
-            disabled={!canFinish}
-            className="w-full h-control-lg text-base"
-          >
-            Finish Job
-          </Button>
-          {!canFinish && (
-            <p className="text-xs text-muted text-center">
-              {!sizeConfirmed && "Enter confirmed size. "}
-              {photos.length === 0 && "Add at least one photo. "}
-              {!signature && "Customer signature required."}
-            </p>
-          )}
+          <Card title="3. Customer Acceptance Signature">
+            <Field
+              label="Sign on screen below"
+              required
+              hint="Customer agrees installation is complete and operational"
+            >
+              <SignaturePad onChange={setSignature} />
+            </Field>
+          </Card>
         </div>
       )}
 
-      {/* Done state */}
+      {/* Completed Success Card */}
       {isDone && (
-        <div className="bg-success/10 border border-success rounded-card p-4 text-center">
-          <p className="text-success font-semibold text-lg">✓ Job Complete</p>
-          {job.sizeConfirmed && <p className="text-sm mt-1">Size: {job.sizeConfirmed} kW</p>}
-          {job.photos?.length > 0 && <p className="text-sm">{job.photos.length} photos</p>}
-          {job.hasSignature && <p className="text-sm">Signature captured</p>}
-        </div>
+        <Card className="bg-success/10 border-success/30 text-center py-6">
+          <div className="w-12 h-12 rounded-full bg-success text-white flex items-center justify-center mx-auto mb-2 shadow-sm">
+            <CheckCircle2 className="w-7 h-7" />
+          </div>
+          <h3 className="font-heading text-lg font-bold text-success">
+            Job Completed
+          </h3>
+          <p className="text-xs text-text mt-1">
+            Confirmed Size: <strong>{job.sizeConfirmed} kW</strong> • {job.photos?.length || 0} Photos Recorded
+          </p>
+          <div className="mt-4 pt-3 border-t border-success/20">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => navigate("/m")}
+              className="w-full"
+            >
+              Back to My Work
+            </Button>
+          </div>
+        </Card>
       )}
-    </PhoneLayout>
+    </PhonePage>
   );
 }

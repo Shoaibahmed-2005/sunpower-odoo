@@ -1,10 +1,12 @@
+import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "../../api/client";
 import { qk } from "../../lib/queryKeys";
-import PhoneLayout from "../../components/PhoneLayout";
+import PhonePage from "../../components/PhonePage";
+import Card from "../../components/Card";
 import Badge from "../../components/Badge";
-import { Wrench, ClipboardList } from "lucide-react";
+import { Wrench, ClipboardList, CheckCircle2, MapPin, Clock } from "lucide-react";
 
 interface JobRow {
   id: number;
@@ -34,79 +36,118 @@ export default function TechHome() {
   const doneJobs = jobs.filter((j) => j.status === "DONE");
 
   return (
-    <PhoneLayout title="My Work">
-      {/* Active Jobs */}
-      <div className="mb-6">
-        <h2 className="font-heading text-lg font-semibold mb-3 flex items-center gap-2">
-          <Wrench className="w-5 h-5" /> Jobs
-        </h2>
-        {activeJobs.length === 0 && (
-          <p className="text-muted text-sm">No active jobs today</p>
-        )}
-        {activeJobs.map((j) => (
-          <button
-            key={j.id}
-            onClick={() => navigate(`/m/jobs/${j.id}`)}
-            className="w-full text-left bg-surface border border-border rounded-card p-4 mb-3 hover:shadow-card"
-          >
-            <div className="flex justify-between items-start">
-              <div>
-                <span className="font-mono text-[13px] font-medium">{j.ref}</span>
-                <p className="text-base font-medium mt-1">{j.leadName}</p>
-                <p className="text-sm text-muted">{j.kw} kW · {j.scheduledDate}</p>
-              </div>
-              <Badge status={j.status} />
-            </div>
-          </button>
-        ))}
-      </div>
-
-      {/* My Surveys */}
-      {surveys.length > 0 && (
-        <div className="mb-6">
-          <h2 className="font-heading text-lg font-semibold mb-3 flex items-center gap-2">
-            <ClipboardList className="w-5 h-5" /> Surveys
+    <PhonePage
+      title="My Work"
+      subtitle="Today's Field Tasks"
+    >
+      {/* Active Installations Section */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <h2 className="font-heading text-base font-bold text-text flex items-center gap-2">
+            <Wrench className="w-4 h-4 text-primary" />
+            <span>Assigned Installations</span>
           </h2>
-          {surveys.map((s: any) => (
-            <button
-              key={s.id}
-              onClick={() => navigate(`/m/surveys/${s.id}`)}
-              className="w-full text-left bg-surface border border-border rounded-card p-4 mb-3 hover:shadow-card"
-            >
-              <div className="flex justify-between items-start">
-                <div>
-                  <span className="font-mono text-[13px] font-medium">{s.ref}</span>
-                  <p className="text-base font-medium mt-1">{s.leadName}</p>
-                  <p className="text-sm text-muted">{s.address}</p>
-                </div>
-                <Badge status={s.status} />
-              </div>
-            </button>
-          ))}
+          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+            {activeJobs.length} Active
+          </span>
         </div>
-      )}
 
-      {/* Completed Jobs */}
-      {doneJobs.length > 0 && (
-        <div>
-          <h2 className="font-heading text-lg font-semibold mb-3 text-muted">Completed</h2>
-          {doneJobs.map((j) => (
-            <button
+        {activeJobs.length === 0 ? (
+          <Card className="text-center py-6 text-muted">
+            <p className="text-sm font-medium">No pending installation jobs today.</p>
+          </Card>
+        ) : (
+          activeJobs.map((j) => (
+            <Card
               key={j.id}
               onClick={() => navigate(`/m/jobs/${j.id}`)}
-              className="w-full text-left bg-surface border border-border rounded-card p-4 mb-3 opacity-60"
+              className="p-4 hover:border-primary/50 text-left bg-surface shadow-xs active:scale-[0.99] transition-transform"
             >
-              <div className="flex justify-between items-start">
-                <div>
-                  <span className="font-mono text-[13px]">{j.ref}</span>
-                  <p className="text-sm mt-1">{j.leadName} · {j.kw} kW</p>
-                </div>
-                <Badge status={j.status} />
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="font-mono text-sm font-bold text-primary">
+                  {j.ref}
+                </span>
+                <Badge status={j.status} size="sm" />
               </div>
-            </button>
+              <h3 className="font-heading text-base font-bold text-text truncate">
+                {j.leadName}
+              </h3>
+              <div className="mt-2 text-xs text-muted flex items-center justify-between border-t border-border/60 pt-2">
+                <span className="font-semibold text-text">{j.kw} kW System</span>
+                <span className="flex items-center gap-1">
+                  <Clock className="w-3.5 h-3.5" />
+                  {j.scheduledDate}
+                </span>
+              </div>
+            </Card>
+          ))
+        )}
+      </div>
+
+      {/* Surveys Section */}
+      {surveys.length > 0 && (
+        <div className="space-y-3 pt-2">
+          <div className="flex items-center justify-between px-1">
+            <h2 className="font-heading text-base font-bold text-text flex items-center gap-2">
+              <ClipboardList className="w-4 h-4 text-primary" />
+              <span>Assigned Site Surveys</span>
+            </h2>
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-border text-muted">
+              {surveys.length} Total
+            </span>
+          </div>
+
+          {surveys.map((s: any) => (
+            <Card
+              key={s.id}
+              onClick={() => navigate(`/m/surveys/${s.id}`)}
+              className="p-4 hover:border-primary/50 text-left bg-surface shadow-xs active:scale-[0.99] transition-transform"
+            >
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="font-mono text-sm font-bold text-primary">
+                  {s.ref}
+                </span>
+                <Badge status={s.status} size="sm" />
+              </div>
+              <h3 className="font-heading text-base font-bold text-text truncate">
+                {s.leadName}
+              </h3>
+              <p className="text-xs text-muted mt-1 flex items-center gap-1 truncate">
+                <MapPin className="w-3.5 h-3.5 shrink-0" />
+                {s.address}
+              </p>
+            </Card>
           ))}
         </div>
       )}
-    </PhoneLayout>
+
+      {/* Completed Jobs History */}
+      {doneJobs.length > 0 && (
+        <div className="space-y-2 pt-4 border-t border-border/80">
+          <h2 className="font-heading text-xs font-semibold uppercase text-muted tracking-wider px-1">
+            Completed Today ({doneJobs.length})
+          </h2>
+          {doneJobs.map((j) => (
+            <Card
+              key={j.id}
+              onClick={() => navigate(`/m/jobs/${j.id}`)}
+              className="p-3 bg-surface/70 border-border/60 opacity-80"
+            >
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="font-mono text-xs font-medium text-muted block">
+                    {j.ref}
+                  </span>
+                  <span className="text-sm font-semibold text-text">
+                    {j.leadName} • {j.kw} kW
+                  </span>
+                </div>
+                <Badge status={j.status} size="sm" />
+              </div>
+            </Card>
+          ))}
+        </div>
+      )}
+    </PhonePage>
   );
 }
