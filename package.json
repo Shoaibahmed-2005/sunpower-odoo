@@ -1,0 +1,13 @@
+{
+  "name": "kiran",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently -n api,web \"npm:dev:api\" \"npm:dev:web\"",
+    "dev:api": "cd server && uv run uvicorn app.main:app --reload --port 8000",
+    "dev:web": "cd client && npm run dev",
+    "reset": "cd server && uv run python -m app.seed"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}
