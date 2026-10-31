@@ -22,3 +22,4 @@ export default function PortalGuard({ children }: { children: React.ReactNode })
 
   return <>{children}</>;
 }
+

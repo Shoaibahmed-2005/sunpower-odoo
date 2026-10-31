@@ -61,3 +61,4 @@ def customer_lead_ids(db: Session, account: CustomerAccount) -> list[int]:
     """All lead IDs associated with this customer's phone number."""
     leads = db.scalars(select(Lead.id).where(Lead.phone == account.phone)).all()
     return list(leads)
+

@@ -7,7 +7,7 @@ import LeadForm from "../pages/sales/LeadForm";
 import SurveysList from "../pages/sales/SurveysList";
 import SurveyDetail from "../pages/sales/SurveyDetail";
 import SurveyForm from "../pages/mobile/SurveyForm";
-import EnquiryForm from "../pages/public/EnquiryForm";
+import EnquiryForm from "../pages/sales/EnquiryForm";
 import UsersPage from "../pages/admin/UsersPage";
 
 type Route = { path: string; element: ReactNode; perm: string; menu?: { group: string; label: string } };

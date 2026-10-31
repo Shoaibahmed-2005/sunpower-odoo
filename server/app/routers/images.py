@@ -27,3 +27,4 @@ def get_image(public_id: str, db: Session = Depends(get_db)):
             "Cache-Control": "public, max-age=86400",
         },
     )
+

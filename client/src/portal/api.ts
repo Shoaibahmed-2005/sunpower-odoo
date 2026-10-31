@@ -160,3 +160,4 @@ export const portalService = {
 
   getNotifications: () => portalApi.get<CustomerNotification[]>("/notifications"),
 };
+
