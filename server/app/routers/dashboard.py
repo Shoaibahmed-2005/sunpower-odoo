@@ -1,8 +1,10 @@
-"""Dashboard counts and the profit-per-job report. Owner: A. Everything is computed on request, nothing stored."""
+"""Dashboard counts and the profit-per-job report (JSON + CSV). Owner: A. Everything is computed on request, nothing stored."""
+import csv
+import io
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
@@ -166,14 +168,36 @@ def job_profit(db: Session, job: Job) -> ProfitRow:
                      margin_pct=round(profit / revenue * 100) if revenue else 0)
 
 
-@router.get("/reports/profit", response_model=list[ProfitRow])
-def profit_report(from_: date | None = Query(None, alias="from"), to: date | None = None,
-                  user=Depends(require_perm("reports:read")), db: Session = Depends(get_db)):
-    """Profit of every finished job, optionally finished between from and to (inclusive dates).
-    Perm: reports:read (only the Director's "*" has it)."""
+def profit_rows(db: Session, from_: date | None, to: date | None) -> list[ProfitRow]:
+    """Every DONE job, optionally finished between from and to (inclusive dates), newest first."""
     query = select(Job).where(Job.status == JobStatus.DONE).order_by(Job.finished_at.desc())
     if from_ is not None:
         query = query.where(Job.finished_at >= datetime.combine(from_, time.min, tzinfo=timezone.utc))
     if to is not None:
         query = query.where(Job.finished_at < datetime.combine(to + timedelta(days=1), time.min, tzinfo=timezone.utc))
     return [job_profit(db, job) for job in db.scalars(query)]
+
+
+@router.get("/reports/profit", response_model=list[ProfitRow])
+def profit_report(from_: date | None = Query(None, alias="from"), to: date | None = None,
+                  user=Depends(require_perm("reports:read")), db: Session = Depends(get_db)):
+    """Profit of every finished job. Perm: reports:read (only the Director's "*" has it). 400 on a bad date."""
+    return profit_rows(db, from_, to)
+
+
+CSV_COLUMNS = ["Job", "Customer", "Finished", "Revenue", "Parts", "Labour", "Free repairs", "Profit", "Margin %"]
+
+
+@router.get("/reports/profit.csv")
+def profit_report_csv(from_: date | None = Query(None, alias="from"), to: date | None = None,
+                      user=Depends(require_perm("reports:read")), db: Session = Depends(get_db)):
+    """The same rows as /reports/profit, as a spreadsheet download. Perm: reports:read."""
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(CSV_COLUMNS)
+    for r in profit_rows(db, from_, to):
+        writer.writerow([r.job_ref, r.lead_name, r.finished_at.date().isoformat() if r.finished_at else "",
+                         r.revenue, r.parts_cost, r.labour_cost, r.repair_cost, r.profit, r.margin_pct])
+    # utf-8-sig adds a BOM so Excel shows names with Indian characters correctly
+    return Response(content=out.getvalue().encode("utf-8-sig"), media_type="text/csv",
+                    headers={"Content-Disposition": 'attachment; filename="profit-per-job.csv"'})

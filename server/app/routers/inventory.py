@@ -1,13 +1,14 @@
-"""Products, packages, stock, dispatches (scan / unscan / validate) and serial lookup. Owner: A.
+"""Products, packages, stock, dispatches (scan / unscan / validate), serial lookup, receipts. Owner: A.
 
 Paths are written in full under prefix "/api". Business rules live in services/stock.py;
 every write endpoint here calls the service, then commits once.
 """
 from datetime import date, datetime
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from pydantic import Field
 from sqlalchemy import or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth import require_perm
@@ -20,6 +21,8 @@ from app.models import (
     Package,
     PackageType,
     Product,
+    Receipt,
+    ReceiptStatus,
     SerialStatus,
     SerialUnit,
     Tracking,
@@ -306,3 +309,124 @@ def search_serials(q: str = "", user=Depends(require_perm("serials:read")), db: 
                   under_warranty=u.warranty_until is not None and u.warranty_until >= today)
         for u in db.scalars(query)
     ]
+
+
+# ---------- Receipts ----------
+
+class ReceiptLineIn(ApiModel):
+    product_id: int
+    qty: int = Field(ge=1, le=10000)
+    unit_cost: int | None = Field(default=None, ge=0, le=10_000_000)  # empty = the product's usual cost
+
+
+class ReceiptIn(ApiModel):
+    vendor: str = Field(min_length=1, max_length=100)
+    lines: list[ReceiptLineIn] = Field(min_length=1, max_length=50)
+
+
+class ReceiveLineIn(ApiModel):
+    line_id: int
+    serials: list[str] = Field(max_length=10000)
+
+
+class ReceiveIn(ApiModel):
+    lines: list[ReceiveLineIn] = Field(default_factory=list, max_length=50)
+
+
+class ReceiptListItem(ApiModel):
+    id: int
+    ref: str
+    vendor: str
+    status: ReceiptStatus
+    line_count: int
+    total_qty: int
+    created_at: datetime
+    received_at: datetime | None
+
+
+class ReceiptLineOut(ApiModel):
+    id: int
+    product_id: int
+    code: str
+    name: str
+    tracking: Tracking
+    qty: int
+    unit_cost: int
+    serials: list[str]
+
+
+class ReceiptDetail(ApiModel):
+    id: int
+    ref: str
+    vendor: str
+    status: ReceiptStatus
+    created_at: datetime
+    received_at: datetime | None
+    lines: list[ReceiptLineOut]
+
+
+def receipt_detail(receipt: Receipt) -> ReceiptDetail:
+    lines = [
+        ReceiptLineOut(id=l.id, product_id=l.product_id, code=l.product.code, name=l.product.name,
+                       tracking=l.product.tracking, qty=l.qty, unit_cost=l.unit_cost, serials=l.serials)
+        for l in receipt.lines
+    ]
+    return ReceiptDetail(id=receipt.id, ref=receipt.ref, vendor=receipt.vendor, status=receipt.status,
+                         created_at=receipt.created_at, received_at=receipt.received_at, lines=lines)
+
+
+@router.get("/receipts", response_model=list[ReceiptListItem])
+def list_receipts(status: ReceiptStatus | None = None, user=Depends(require_perm("stock:read")),
+                  db: Session = Depends(get_db)):
+    """Receipts, newest first, optionally one status. Perm: stock:read."""
+    query = select(Receipt).order_by(Receipt.id.desc())
+    if status is not None:
+        query = query.where(Receipt.status == status)
+    return [
+        ReceiptListItem(id=r.id, ref=r.ref, vendor=r.vendor, status=r.status, line_count=len(r.lines),
+                        total_qty=sum(l.qty for l in r.lines), created_at=r.created_at, received_at=r.received_at)
+        for r in db.scalars(query)
+    ]
+
+
+@router.get("/receipts/{receipt_id}", response_model=ReceiptDetail)
+def get_receipt(receipt_id: int, user=Depends(require_perm("stock:read")), db: Session = Depends(get_db)):
+    """One receipt with its lines (and serials once received). Perm: stock:read. 404 if unknown."""
+    return receipt_detail(stock.get_receipt(db, receipt_id))
+
+
+@router.post("/receipts", response_model=ReceiptDetail, status_code=201)
+def create_receipt(body: ReceiptIn, user=Depends(require_perm("stock:write")), db: Session = Depends(get_db)):
+    """Record goods on the way (DRAFT); stock doesn't change until it's received. Perm: stock:write.
+    Errors: 400 bad vendor / qty / cost, or a service product · 404 unknown product."""
+    vendor = body.vendor.strip()
+    if not vendor:
+        raise ApiError(400, "Vendor is required", "vendor")
+    receipt = stock.create_receipt(db, vendor, [(l.product_id, l.qty, l.unit_cost) for l in body.lines])
+    db.commit()
+    return receipt_detail(receipt)
+
+
+@router.delete("/receipts/{receipt_id}", status_code=204)
+def delete_receipt(receipt_id: int, user=Depends(require_perm("stock:write")), db: Session = Depends(get_db)):
+    """Delete a DRAFT receipt (to change one, delete it and create it again). Perm: stock:write.
+    Errors: 404 unknown · 409 already received."""
+    stock.delete_receipt(db, receipt_id)
+    db.commit()
+    return Response(status_code=204)
+
+
+@router.post("/receipts/{receipt_id}/receive", response_model=ReceiptDetail)
+def receive_receipt(receipt_id: int, body: ReceiveIn, user=Depends(require_perm("stock:write")),
+                    db: Session = Depends(get_db)):
+    """Count the goods in: new IN_STOCK serial units for SERIAL lines, stock up for every line, receipt DONE.
+    Perm: stock:write. Errors: 400 serials on a counted line / unknown line · 404 unknown receipt ·
+    409 already received / wrong number of serials / serial entered twice / serial already exists."""
+    receipt = stock.receive_receipt(db, receipt_id, {l.line_id: l.serials for l in body.lines})
+    try:
+        db.commit()
+    except IntegrityError:
+        # the unique serial column caught a unit someone else added between our check and our commit
+        db.rollback()
+        raise ApiError(409, "One of these serials was just added by someone else, check and retry", "lines")
+    return receipt_detail(receipt)

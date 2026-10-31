@@ -114,6 +114,26 @@ class TicketStatus(str, enum.Enum):
     CLOSED = "CLOSED"
 
 
+# day 2
+class SubsidyStage(str, enum.Enum):
+    NOT_STARTED = "NOT_STARTED"
+    APPLIED = "APPLIED"
+    DOCS_VERIFIED = "DOCS_VERIFIED"
+    NET_METER = "NET_METER"
+    INSPECTION = "INSPECTION"
+    CREDITED = "CREDITED"
+
+
+class PayoutStatus(str, enum.Enum):
+    DUE = "DUE"
+    PAID = "PAID"
+
+
+class ReceiptStatus(str, enum.Enum):
+    DRAFT = "DRAFT"  # ordered / on the way: lines can still be deleted
+    DONE = "DONE"    # received: stock counted in, serials created
+
+
 # ---------- Tables ----------
 
 class User(Base):
@@ -346,3 +366,61 @@ class Ticket(Base):
     serial_unit: Mapped[SerialUnit | None] = relationship()
     lead: Mapped[Lead] = relationship()
     technician: Mapped[User | None] = relationship()
+
+
+# ---------- Day 2 tables (BUILD_PLAN §5) ----------
+
+class SubsidyApplication(Base):
+    """Government subsidy paperwork for one installed job (C's tracker)."""
+    __tablename__ = "subsidy_applications"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id"), unique=True)  # one application per job
+    stage: Mapped[SubsidyStage] = mapped_column(Enum(SubsidyStage), default=SubsidyStage.NOT_STARTED)
+    expected_amount: Mapped[int] = mapped_column(Integer, default=0)
+    documents: Mapped[list] = mapped_column(JSON, default=list)  # uploaded file URLs
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    job: Mapped[Job] = relationship()
+
+
+class TechnicianPayout(Base):
+    """Pay for one technician for one period: hours from finished jobs × hourly rate (C's pay page)."""
+    __tablename__ = "technician_payouts"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    technician_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    period_start: Mapped[date] = mapped_column(Date)
+    period_end: Mapped[date] = mapped_column(Date)
+    hours: Mapped[float] = mapped_column(Float)
+    rate: Mapped[int] = mapped_column(Integer)  # copied from the user, so a later rate change keeps old payouts
+    amount: Mapped[int] = mapped_column(Integer)
+    status: Mapped[PayoutStatus] = mapped_column(Enum(PayoutStatus), default=PayoutStatus.DUE)
+    paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    technician: Mapped[User] = relationship()
+
+
+class Receipt(Base):
+    """Goods arriving from a vendor. Stock only goes up when the receipt is received (DONE)."""
+    __tablename__ = "receipts"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    ref: Mapped[str | None] = mapped_column(String(20), unique=True)  # RCV/0001, set from the id after insert
+    vendor: Mapped[str] = mapped_column(String(100))
+    status: Mapped[ReceiptStatus] = mapped_column(Enum(ReceiptStatus), default=ReceiptStatus.DRAFT)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    received_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+    lines: Mapped[list["ReceiptLine"]] = relationship(back_populates="receipt", cascade="all, delete-orphan")
+
+
+class ReceiptLine(Base):
+    __tablename__ = "receipt_lines"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    receipt_id: Mapped[int] = mapped_column(ForeignKey("receipts.id"))
+    product_id: Mapped[int] = mapped_column(ForeignKey("products.id"))
+    qty: Mapped[int] = mapped_column(Integer)
+    # what this batch cost; becomes serial_units.unit_cost, which the profit report uses
+    unit_cost: Mapped[int] = mapped_column(Integer)
+    serials: Mapped[list] = mapped_column(JSON, default=list)  # scanned on receive (SERIAL products only)
+
+    receipt: Mapped[Receipt] = relationship(back_populates="lines")
+    product: Mapped[Product] = relationship()

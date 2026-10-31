@@ -101,3 +101,26 @@ Customers: Meera NEW · Rahul CONTACTED · Kavita survey SUBMITTED · Suresh sur
 - `SerialsLookup`: live search, Covered / Expired badge.
 - `Dashboard`: cards only for the groups the API returned, today / week / month toggle.
 - `ProfitReport`: date filter, totals, losses in red, row click opens the job.
+
+## Day 2 (P2)
+
+### server/app/models.py: day-2 tables
+- `subsidy_applications` (C uses it): one per job (`job_id` unique), `stage` enum NOT_STARTED → … → CREDITED, `documents` = uploaded URLs, `updated_at` refreshed on every change (`onupdate`).
+- `technician_payouts` (C uses it): `rate` is copied from the user, so a later rate change doesn't rewrite old payouts.
+- `receipts` + `receipt_lines` (A): a receipt is DRAFT until received. `unit_cost` per line becomes each new serial unit's `unit_cost`, which the profit report uses as the real purchase cost.
+
+### Receipts: services/stock.py + routers/inventory.py
+Endpoints: `GET /receipts?status=`, `GET /receipts/{id}` (stock:read) · `POST /receipts` (201), `DELETE /receipts/{id}` (204, DRAFT only), `POST /receipts/{id}/receive {lines:[{lineId, serials:[…]}]}` (stock:write).
+- Create: vendor 1–100 characters (spaces-only refused), 1–50 lines, qty 1–10,000, cost optional (empty = the product's usual cost), services refused. Ref `RCV/<id>` comes from the row id, so no new counter is needed.
+- Receive (one commit): locks the receipt row (a double click waits, then sees DONE) · each SERIAL line needs exactly `qty` serials · no serial twice in the request · none that already exist · counted lines must have no serials · then new IN_STOCK units are created and `qty_on_hand = qty_on_hand + qty` runs in SQL (so a dispatch validating at the same moment can't overwrite the count) · status DONE.
+- The race between "check the serial doesn't exist" and the commit is covered by the unique `serial` column: `IntegrityError` → rollback → 409.
+- No edit endpoint: to change a draft, delete it and create it again (less code, the same result for a draft).
+
+### GET /reports/profit.csv
+Same rows as `/reports/profit` (shared `profit_rows`), written with Python's `csv` module, sent as `text/csv` with `Content-Disposition: attachment`. UTF-8 with a BOM, so Excel shows names correctly. The page's "Download CSV" is a plain `<a href>`: the browser sends the login cookie itself.
+
+### Pages: ReceiptsList, NewReceipt, ReceiptDetail
+New receipt: vendor plus product / qty / cost rows (services aren't offered). Detail: per serial line, a scan box (Enter adds the serial; duplicates and extras are refused in the page, and the server checks again), an `n/qty` counter, ✕ to remove a serial, and Receive disabled with a tooltip until every serial line is complete. Receiving invalidates receipts, stock and the dashboard.
+
+### Not built: Alembic
+It's optional in the plan. The schema still changes daily and `npm run reset` recreates it in seconds; adding migrations mid-hackathon means every member has to run them in order. Add it once the schema is frozen.

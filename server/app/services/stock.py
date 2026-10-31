@@ -1,4 +1,4 @@
-"""Stock rules: scan, unscan, validate a dispatch, reserved stock, manual adjust. Owner: A.
+"""Stock rules: scan, unscan, validate a dispatch, reserved stock, manual adjust, receipts. Owner: A.
 
 These functions only change the session; they never commit. The router commits once at the end,
 so if any guard raises, nothing from that request is saved (the session closes and rolls back).
@@ -18,6 +18,9 @@ from app.models import (
     Quotation,
     QuoteLine,
     QuoteStatus,
+    Receipt,
+    ReceiptLine,
+    ReceiptStatus,
     SerialStatus,
     SerialUnit,
     Tracking,
@@ -176,3 +179,78 @@ def adjust_stock(db: Session, product_id: int, new_qty: int) -> Product:
         raise ApiError(409, f"{product.code} is tracked by {product.tracking.value}, it can't be adjusted")
     product.qty_on_hand = new_qty
     return product
+
+
+# ---------- Receipts (goods in from a vendor) ----------
+
+def get_receipt(db: Session, receipt_id: int) -> Receipt:
+    receipt = db.get(Receipt, receipt_id)
+    if receipt is None:
+        raise ApiError(404, "Receipt not found")
+    return receipt
+
+
+def create_receipt(db: Session, vendor: str, lines: list[tuple[int, int, int | None]]) -> Receipt:
+    """lines = (product_id, qty, unit_cost or None for the product's usual cost). Stock is NOT changed yet."""
+    receipt = Receipt(vendor=vendor)
+    for product_id, qty, unit_cost in lines:
+        product = db.get(Product, product_id)
+        if product is None:
+            raise ApiError(404, f"Product {product_id} not found", "productId")
+        if product.tracking == Tracking.SERVICE:
+            raise ApiError(400, f"{product.code} is a service, it can't be received", "productId")
+        receipt.lines.append(ReceiptLine(product=product, qty=qty,
+                                         unit_cost=product.cost if unit_cost is None else unit_cost))
+    db.add(receipt)
+    db.flush()  # gives the receipt its id, which the reference is built from
+    receipt.ref = f"RCV/{receipt.id:04d}"
+    return receipt
+
+
+def delete_receipt(db: Session, receipt_id: int) -> None:
+    receipt = get_receipt(db, receipt_id)
+    if receipt.status != ReceiptStatus.DRAFT:
+        raise ApiError(409, "A received receipt can't be deleted: its stock is already counted")
+    db.delete(receipt)
+
+
+def receive_receipt(db: Session, receipt_id: int, serials_by_line: dict[int, list[str]]) -> Receipt:
+    """Count the goods in: SERIAL lines need exactly qty new serials; stock goes up for every line."""
+    receipt = db.get(Receipt, receipt_id, with_for_update=True)  # two clicks on Receive: the second waits, then sees DONE
+    if receipt is None:
+        raise ApiError(404, "Receipt not found")
+    if receipt.status != ReceiptStatus.DRAFT:
+        raise ApiError(409, "Receipt already received")
+    line_ids = {line.id for line in receipt.lines}
+    unknown = set(serials_by_line) - line_ids
+    if unknown:
+        raise ApiError(400, f"Line {min(unknown)} is not on this receipt", "lines")
+
+    seen: set[str] = set()
+    for line in receipt.lines:
+        serials = [s.strip() for s in serials_by_line.get(line.id, []) if s.strip()]
+        if line.product.tracking != Tracking.SERIAL:
+            if serials:
+                raise ApiError(400, f"{line.product.code} is counted, not scanned: remove its serials", "lines")
+            continue
+        if len(serials) != line.qty:
+            raise ApiError(409, f"{line.product.code}: scan {line.qty} serials ({len(serials)}/{line.qty})", "lines")
+        for serial in serials:
+            if serial in seen:
+                raise ApiError(409, f"Serial {serial} entered twice", "lines")
+            seen.add(serial)
+        line.serials = serials
+
+    existing = db.scalar(select(SerialUnit.serial).where(SerialUnit.serial.in_(seen))) if seen else None
+    if existing:
+        raise ApiError(409, f"Serial {existing} already exists", "lines")
+
+    for line in receipt.lines:
+        for serial in line.serials:
+            db.add(SerialUnit(serial=serial, product_id=line.product_id, unit_cost=line.unit_cost))
+        # add in SQL, not in Python, so a dispatch validating at the same moment can't overwrite this count
+        db.execute(update(Product).where(Product.id == line.product_id)
+                   .values(qty_on_hand=Product.qty_on_hand + line.qty))
+    receipt.status = ReceiptStatus.DONE
+    receipt.received_at = datetime.now(timezone.utc)
+    return receipt

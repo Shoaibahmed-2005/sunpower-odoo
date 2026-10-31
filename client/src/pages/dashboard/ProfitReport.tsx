@@ -44,7 +44,18 @@ export default function ProfitReport() {
 
   return (
     <div>
-      <PageHeader title="Profit per job" />
+      <PageHeader
+        title="Profit per job"
+        actions={
+          // a plain link: the browser sends the login cookie and saves the file the server returns
+          <a
+            href={`/api/reports/profit.csv?${new URLSearchParams({ ...(from && { from }), ...(to && { to }) })}`}
+            className="inline-flex items-center rounded-md h-control px-4 text-sm font-medium bg-surface text-primary border border-border hover:brightness-90"
+          >
+            Download CSV
+          </a>
+        }
+      />
       <div className="flex flex-wrap items-end gap-4 mb-6">
         <Field label="Finished from">
           <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={inputClass} />

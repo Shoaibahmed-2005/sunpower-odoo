@@ -29,6 +29,8 @@ from app.models import (
     Quotation,
     QuoteLine,
     QuoteStatus,
+    Receipt,
+    ReceiptLine,
     Role,
     SerialStatus,
     SerialUnit,
@@ -337,6 +339,12 @@ def seed_demo(demo: Demo) -> None:
                        technician=demo.users["sameer"], parts_cost=52000, labour_cost=6000, bill_amount=0,
                        created_at=days_ago(12), resolved_at=days_ago(10)))
 
+    # stock on the way: deepa receives it in the demo by scanning the two new inverters
+    receipt = Receipt(ref="RCV/0001", vendor="Sun Electric Traders", created_at=days_ago(1))
+    receipt.lines.append(ReceiptLine(product=demo.products["INV-OG3"], qty=2, unit_cost=37500))
+    receipt.lines.append(ReceiptLine(product=demo.products["CAB-DC4"], qty=500, unit_cost=52))
+    demo.db.add(receipt)
+
 
 def main() -> None:
     # importing app.models above registered every table on Base.metadata
@@ -349,7 +357,7 @@ def main() -> None:
         packages = seed_packages(db, products)
         seed_demo(Demo(db, users, products, packages, stock))
     print(f"Seeded {len(USERS)} users, {len(PRODUCTS)} products, 12 packages, "
-          f"{sum(SERIAL_STOCK.values())} serial units in stock, 11 demo customers. Password for everyone: {PASSWORD}")
+          f"{sum(SERIAL_STOCK.values())} serial units in stock, 11 demo customers, 1 draft receipt. Password for everyone: {PASSWORD}")
 
 
 if __name__ == "__main__":

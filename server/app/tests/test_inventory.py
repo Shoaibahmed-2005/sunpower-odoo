@@ -1,4 +1,4 @@
-"""Member A's gates: scan, unscan, validate, stock adjust, warranty dates, profit. Each test starts from a fresh seed.
+"""Member A's gates: scan, unscan, validate, stock adjust, warranty dates, profit, receipts. Each test starts from a fresh seed.
 
 Run from server/: uv run pytest app/tests/test_inventory.py   (uses DATABASE_URL, which it resets)
 """
@@ -13,9 +13,10 @@ from app.dates import add_months
 from app.db import SessionLocal, engine
 from app.errors import ApiError
 from app.models import (
-    Dispatch, DispatchStatus, Job, JobStatus, Lead, Product, Quotation, QuoteLine, QuoteStatus, SerialStatus, SerialUnit,
+    Dispatch, DispatchStatus, Job, JobStatus, Lead, Product, Quotation, QuoteLine, QuoteStatus, Receipt, ReceiptStatus,
+    SerialStatus, SerialUnit,
 )
-from app.routers.dashboard import crew_size, job_profit
+from app.routers.dashboard import crew_size, job_profit, profit_report_csv
 from app.services import stock
 
 
@@ -152,3 +153,58 @@ def test_two_dispatches_racing_for_the_last_unit(db):
     for t in threads:
         t.join()
     assert sorted(results) == ["Not enough stock for DB-SET", "ok"]
+
+
+def draft_receipt(db) -> Receipt:
+    """Seeded RCV/0001: 2 × INV-OG3 (serial-tracked) + 500 m cable (counted)."""
+    return db.scalar(select(Receipt).where(Receipt.status == ReceiptStatus.DRAFT))
+
+
+def lines_by_code(receipt: Receipt) -> dict[str, int]:
+    return {line.product.code: line.id for line in receipt.lines}
+
+
+def test_receive_needs_exact_new_serials(db):
+    receipt = draft_receipt(db)
+    ids = lines_by_code(receipt)
+    one = {ids["INV-OG3"]: ["INV-OG3-26B0001"]}
+    assert error_of(lambda: stock.receive_receipt(db, receipt.id, one)).message == "INV-OG3: scan 2 serials (1/2)"
+    twice = {ids["INV-OG3"]: ["INV-OG3-26B0001", "INV-OG3-26B0001"]}
+    assert error_of(lambda: stock.receive_receipt(db, receipt.id, twice)).message == "Serial INV-OG3-26B0001 entered twice"
+    clash = {ids["INV-OG3"]: ["INV-OG3-26B0001", "INV-OG3-26A0004"]}   # 26A0004 is already in stock
+    assert error_of(lambda: stock.receive_receipt(db, receipt.id, clash)).message == "Serial INV-OG3-26A0004 already exists"
+    on_cable = {ids["INV-OG3"]: ["INV-OG3-26B0001", "INV-OG3-26B0002"], ids["CAB-DC4"]: ["X"]}
+    assert error_of(lambda: stock.receive_receipt(db, receipt.id, on_cable)).status == 400
+
+
+def test_receive_adds_stock_and_serial_units(db):
+    receipt = draft_receipt(db)
+    ids = lines_by_code(receipt)
+    inverter = db.scalar(select(Product).where(Product.code == "INV-OG3"))
+    cable = db.scalar(select(Product).where(Product.code == "CAB-DC4"))
+    before = (inverter.qty_on_hand, cable.qty_on_hand)
+    stock.receive_receipt(db, receipt.id, {ids["INV-OG3"]: ["INV-OG3-26B0001", "INV-OG3-26B0002"]})
+    db.commit()
+    db.refresh(inverter)
+    db.refresh(cable)
+    assert (inverter.qty_on_hand, cable.qty_on_hand) == (before[0] + 2, before[1] + 500)
+    unit = db.scalar(select(SerialUnit).where(SerialUnit.serial == "INV-OG3-26B0002"))
+    assert (unit.status, unit.unit_cost) == (SerialStatus.IN_STOCK, 37500)   # cost from the receipt, used by profit
+    # receiving twice or deleting a received receipt is refused
+    assert error_of(lambda: stock.receive_receipt(db, receipt.id, {})).message == "Receipt already received"
+    assert error_of(lambda: stock.delete_receipt(db, receipt.id)).status == 409
+
+
+def test_create_receipt_refuses_service_and_sets_ref(db):
+    service = db.scalar(select(Product).where(Product.code == "SVC-INST"))
+    assert error_of(lambda: stock.create_receipt(db, "Vendor", [(service.id, 1, None)])).status == 400
+    panel = db.scalar(select(Product).where(Product.code == "PNL-545"))
+    receipt = stock.create_receipt(db, "Vendor", [(panel.id, 20, None)])
+    assert receipt.ref == f"RCV/{receipt.id:04d}" and receipt.lines[0].unit_cost == panel.cost
+
+
+def test_profit_csv_has_header_and_one_row_per_job(db):
+    text = profit_report_csv(from_=None, to=None, user=None, db=db).body.decode("utf-8-sig").splitlines()
+    assert text[0].startswith("Job,Customer,Finished,Revenue")
+    assert len(text) == 1 + 3                       # Anil, Ramesh, Sunita
+    assert any("Ramesh Kulkarni" in line and ",-" in line for line in text)
