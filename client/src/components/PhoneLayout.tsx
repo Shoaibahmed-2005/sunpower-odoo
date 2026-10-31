@@ -17,8 +17,8 @@ export default function PhoneLayout({
   className = "",
 }: PhoneLayoutProps) {
   return (
-    <div className="min-h-screen bg-bg flex justify-center w-full">
-      <div className={`w-full max-w-md min-h-screen bg-bg flex flex-col shadow-card border-x border-border/40 ${className}`}>
+    <div className="min-h-screen bg-bg w-full">
+      <div className={`w-full max-w-md mx-auto min-h-screen bg-bg flex flex-col shadow-card border-x border-border/40 ${className}`}>
         {/* Mobile Header (High contrast for sunlight) */}
         <header className="h-16 bg-primary text-white flex items-center justify-between px-4 gap-3 shrink-0 sticky top-0 z-30 shadow-sm">
           <div className="flex items-center gap-3 min-w-0">

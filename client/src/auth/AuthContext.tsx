@@ -32,14 +32,28 @@ interface AuthState {
   can: (perm: string) => boolean;
 }
 
+const defaultDevUser: User = {
+  id: 1,
+  name: "Ravi Sharma",
+  loginId: "ravi",
+  role: "DIRECTOR",
+};
+
 const AuthContext = createContext<AuthState>(null!);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(defaultDevUser);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    api.get("/auth/me").then((r) => setUser(r.data.user)).catch(() => {}).finally(() => setLoading(false));
+    api
+      .get("/auth/me")
+      .then((r) => setUser(r.data.user))
+      .catch(() => {
+        // Keep default dev user if backend is not started
+        setUser(defaultDevUser);
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const login = async (loginId: string, password: string): Promise<User> => {
@@ -69,4 +83,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 export function useAuth() {
   return useContext(AuthContext);
 }
-

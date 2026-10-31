@@ -9,6 +9,8 @@ import { quoteRoutes } from "./routes/quoteRoutes";
 import { inventoryRoutes } from "./routes/inventoryRoutes";
 import { fieldRoutes } from "./routes/fieldRoutes";
 import Dashboard from "./pages/dashboard/Dashboard";
+import TechHome from "./pages/mobile/TechHome";
+import JobWorksheet from "./pages/mobile/JobWorksheet";
 
 export interface AppRoute {
   path: string;
@@ -33,20 +35,42 @@ export default function App() {
           <Routes>
             {/* Login is outside Layout — owned by C */}
             <Route path="/login" element={<div>Login page — owned by C</div>} />
+
+            {/* Mobile /m routes have their own PhoneLayout, render directly */}
+            <Route
+              path="/m"
+              element={
+                <RequirePerm perm="jobs:mine">
+                  <TechHome />
+                </RequirePerm>
+              }
+            />
+            <Route
+              path="/m/jobs/:id"
+              element={
+                <RequirePerm perm="jobs:mine">
+                  <JobWorksheet />
+                </RequirePerm>
+              }
+            />
+
+            {/* Desktop routes wrapped in Layout */}
             <Route element={<Layout />}>
-              {allRoutes.map((r) => (
-                <Route
-                  key={r.path}
-                  path={r.path}
-                  element={
-                    r.perm ? (
-                      <RequirePerm perm={r.perm}>{r.element}</RequirePerm>
-                    ) : (
-                      r.element
-                    )
-                  }
-                />
-              ))}
+              {allRoutes
+                .filter((r) => r.path !== "/m" && !r.path.startsWith("/m/"))
+                .map((r) => (
+                  <Route
+                    key={r.path}
+                    path={r.path}
+                    element={
+                      r.perm ? (
+                        <RequirePerm perm={r.perm}>{r.element}</RequirePerm>
+                      ) : (
+                        r.element
+                      )
+                    }
+                  />
+                ))}
             </Route>
           </Routes>
         </BrowserRouter>
