@@ -3,7 +3,7 @@
  * Owner: C (BUILD_PLAN §4, §9).
  */
 import { useState } from "react";
-import { useNavigate, Navigate } from "react-router-dom";
+import { useNavigate, Navigate, Link } from "react-router-dom";
 import { useAuth } from "../../auth/AuthContext";
 import Logo from "../../components/Logo";
 import Button from "../../components/Button";
@@ -142,6 +142,12 @@ export default function Login() {
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="mt-4 text-center">
+          <Link to="/portal" className="text-xs font-semibold text-amber-600 hover:text-amber-700">
+            Are you a solar customer? Sign in to Customer Portal →
+          </Link>
         </div>
       </div>
     </div>

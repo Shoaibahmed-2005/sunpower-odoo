@@ -31,6 +31,9 @@ class Settings:
         self.database_url = required("DATABASE_URL")
         self.jwt_secret = required("JWT_SECRET")
         self.upload_dir = SERVER_DIR / "uploads"
+        self.otp_demo = os.environ.get("OTP_DEMO", "true").lower() in ("true", "1", "yes")
+        self.razorpay_key_id = os.environ.get("RAZORPAY_KEY_ID", "")
+        self.razorpay_key_secret = os.environ.get("RAZORPAY_KEY_SECRET", "")
 
 
 settings = Settings()

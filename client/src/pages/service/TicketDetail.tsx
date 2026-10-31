@@ -101,7 +101,7 @@ export default function TicketDetail() {
 
   return (
     <RecordPage
-      title={`Ticket ${ticket.ref}`}
+      title={`Ticket ${ticket.ref}${ticket.source === "PORTAL" ? " [PORTAL]" : ""}`}
       subtitle={`Customer: ${ticket.leadName}`}
       breadcrumbs={[
         { label: "Service", href: "/tickets" },

@@ -39,6 +39,8 @@ from app.models import (
     SystemType,
     Ticket,
     TicketStatus,
+    CustomerAccount,
+    CustomerMessage,
     Tracking,
     User,
 )
@@ -344,6 +346,32 @@ def seed_demo(demo: Demo) -> None:
     receipt.lines.append(ReceiptLine(product=demo.products["INV-OG3"], qty=2, unit_cost=37500))
     receipt.lines.append(ReceiptLine(product=demo.products["CAB-DC4"], qty=500, unit_cost=52))
     demo.db.add(receipt)
+
+    # Customer accounts for portal demo
+    pw_hash = bcrypt.hashpw(PASSWORD.encode(), bcrypt.gensalt(12)).decode()
+    ramesh_acc = CustomerAccount(phone="9822000010", name="Ramesh Kulkarni", password_hash=pw_hash)
+    neha_acc = CustomerAccount(phone="9822000005", name="Neha Gupta", password_hash=pw_hash)
+    demo.db.add_all([ramesh_acc, neha_acc])
+    demo.db.flush()
+
+    msg1 = CustomerMessage(
+        customer_id=ramesh_acc.id,
+        lead_id=ramesh.id,
+        sender_type="CUSTOMER",
+        sender_id=ramesh_acc.id,
+        text="Hello, my inverter stopped functioning yesterday. Need assistance.",
+        created_at=days_ago(12),
+    )
+    msg2 = CustomerMessage(
+        customer_id=ramesh_acc.id,
+        lead_id=ramesh.id,
+        sender_type="STAFF",
+        sender_id=demo.users["sameer"].id,
+        text="Hello Ramesh, we have registered ticket TKT/0001 and technician Sameer is on the way.",
+        created_at=days_ago(11),
+        read_at=days_ago(11),
+    )
+    demo.db.add_all([msg1, msg2])
 
 
 def main() -> None:

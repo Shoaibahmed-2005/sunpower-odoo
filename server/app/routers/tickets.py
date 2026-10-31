@@ -46,6 +46,7 @@ class TicketListItem(ApiModel):
     under_warranty: bool
     status: str
     technician_name: str | None
+    source: str = "STAFF"
     created_at: str
 
 
@@ -75,6 +76,7 @@ class TicketDetail(ApiModel):
     created_at: str
     resolved_at: str | None
     customer_confirmed_at: str | None
+    source: str = "STAFF"
     invoice: InvoiceOut | None
 
 
@@ -126,6 +128,7 @@ def _build_detail(db: Session, ticket: Ticket) -> TicketDetail:
         created_at=ticket.created_at.isoformat(),
         resolved_at=ticket.resolved_at.isoformat() if ticket.resolved_at else None,
         customer_confirmed_at=ticket.customer_confirmed_at.isoformat() if ticket.customer_confirmed_at else None,
+        source=ticket.source,
         invoice=InvoiceOut(
             id=inv.id, ref=inv.ref, amount=inv.amount, status=inv.status.value
         ) if inv else None,
@@ -184,30 +187,31 @@ def list_tickets(
     db: Session = Depends(get_db),
 ):
     """List tickets, optionally filtered by status. Perm: tickets:read."""
-    q = db.query(Ticket)
+    q = (
+        db.query(Ticket, Lead.name, User.name, SerialUnit.serial)
+        .join(Lead, Ticket.lead_id == Lead.id)
+        .outerjoin(User, Ticket.technician_id == User.id)
+        .outerjoin(SerialUnit, Ticket.serial_unit_id == SerialUnit.id)
+    )
     if status:
         q = q.filter(Ticket.status == TicketStatus(status))
-    tickets = q.order_by(Ticket.created_at.desc()).all()
+    rows = q.order_by(Ticket.created_at.desc()).all()
 
-    result = []
-    for t in tickets:
-        lead = db.get(Lead, t.lead_id)
-        tech = db.get(User, t.technician_id) if t.technician_id else None
-        su = db.get(SerialUnit, t.serial_unit_id) if t.serial_unit_id else None
-        result.append(
-            TicketListItem(
-                id=t.id,
-                ref=t.ref,
-                lead_name=lead.name,
-                serial=su.serial if su else None,
-                issue=t.issue,
-                under_warranty=t.under_warranty,
-                status=t.status.value,
-                technician_name=tech.name if tech else None,
-                created_at=t.created_at.isoformat(),
-            )
+    return [
+        TicketListItem(
+            id=t.id,
+            ref=t.ref,
+            lead_name=lead_name,
+            serial=serial,
+            issue=t.issue,
+            under_warranty=t.under_warranty,
+            status=t.status.value,
+            technician_name=tech_name,
+            source=t.source,
+            created_at=t.created_at.isoformat(),
         )
-    return result
+        for t, lead_name, tech_name, serial in rows
+    ]
 
 
 @router.get("/{ticket_id}", response_model=TicketDetail)

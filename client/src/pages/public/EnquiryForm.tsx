@@ -88,6 +88,7 @@ export default function EnquiryForm() {
       <Button variant="primary" loading={send.isPending} disabled={send.isPending} onClick={submit} className="w-full">
         Request quote
       </Button>
+      <div className="text-center pt-2"><a href="/portal" className="text-xs text-muted hover:text-text">Already a customer? Go to Customer Portal →</a></div>
     </main>
   );
 }

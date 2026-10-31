@@ -1,4 +1,4 @@
-"""FastAPI app. Every router is registered here once in Phase 0: nobody needs to edit this file again."""
+"""FastAPI app. Every router is registered here."""
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
@@ -6,11 +6,15 @@ from app.config import settings
 from app.errors import register_error_handlers
 from app.routers import (
     auth,
+    customer_messages,
     dashboard,
+    images,
     inventory,
     invoices,
     jobs,
     leads,
+    portal,
+    portal_auth,
     quotations,
     surveys,
     tickets,
@@ -21,9 +25,24 @@ from app.routers import (
 app = FastAPI(title="SunPower API")
 register_error_handlers(app)
 
-# Each router sets its own prefix inside its file ("/api" or e.g. "/api/jobs"),
-# so main.py adds none and no owner has to edit this file to change their paths.
-for module in (auth, users, leads, surveys, quotations, invoices, inventory, dashboard, jobs, tickets, uploads):
+# Each router sets its own prefix inside its file ("/api" or e.g. "/api/jobs")
+for module in (
+    auth,
+    users,
+    leads,
+    surveys,
+    quotations,
+    invoices,
+    inventory,
+    dashboard,
+    jobs,
+    tickets,
+    uploads,
+    images,
+    portal_auth,
+    portal,
+    customer_messages,
+):
     app.include_router(module.router)
 
 # Uploaded photos are plain files served at /uploads/<uuid>.<ext>

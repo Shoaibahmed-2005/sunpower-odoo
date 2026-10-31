@@ -19,6 +19,7 @@ interface TicketRow {
   underWarranty: boolean;
   status: string;
   technicianName: string | null;
+  source?: string;
   createdAt: string;
 }
 
@@ -75,7 +76,16 @@ export default function TicketsList() {
         {
           key: "ref",
           label: "Reference",
-          render: (r) => <span className="font-mono text-[13px]">{r.ref}</span>,
+          render: (r) => (
+            <div className="flex items-center gap-1.5">
+              <span className="font-mono text-[13px]">{r.ref}</span>
+              {r.source === "PORTAL" && (
+                <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-purple-100 text-purple-800">
+                  PORTAL
+                </span>
+              )}
+            </div>
+          ),
         },
         { key: "leadName", label: "Customer" },
         {

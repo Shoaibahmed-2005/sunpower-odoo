@@ -5,7 +5,7 @@ Money is integer rupees. Times are timezone-aware UTC.
 import enum
 from datetime import date, datetime, timezone
 
-from sqlalchemy import JSON, Boolean, Date, DateTime, Enum, Float, ForeignKey, Integer, String, Text
+from sqlalchemy import JSON, Boolean, Date, DateTime, Enum, Float, ForeignKey, Integer, LargeBinary, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
@@ -85,6 +85,7 @@ class InvoiceType(str, enum.Enum):
 class InvoiceStatus(str, enum.Enum):
     DUE = "DUE"
     PAID = "PAID"
+    PENDING = "PENDING"
 
 
 class JobStatus(str, enum.Enum):
@@ -250,6 +251,9 @@ class Quotation(Base):
     subsidy: Mapped[int] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     confirmed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    accepted_name: Mapped[str | None] = mapped_column(String(100))
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    preferred_date: Mapped[date | None] = mapped_column(Date)
 
     lead: Mapped[Lead] = relationship(back_populates="quotations")
     package: Mapped[Package] = relationship()
@@ -282,6 +286,10 @@ class Invoice(Base):
     status: Mapped[InvoiceStatus] = mapped_column(Enum(InvoiceStatus))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     paid_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    reference: Mapped[str | None] = mapped_column(String(60))
+    submitted_by_customer: Mapped[bool] = mapped_column(Boolean, default=False)
+    method: Mapped[str | None] = mapped_column(String(40))
+    gateway_ref: Mapped[str | None] = mapped_column(String(100))
 
     lead: Mapped[Lead] = relationship()
     quotation: Mapped[Quotation | None] = relationship(back_populates="invoices")
@@ -355,6 +363,7 @@ class Ticket(Base):
     status: Mapped[TicketStatus] = mapped_column(Enum(TicketStatus), default=TicketStatus.NEW)
     # decided once when the ticket is opened, so a warranty that lapses mid-repair doesn't change the bill
     under_warranty: Mapped[bool] = mapped_column(Boolean)
+    source: Mapped[str] = mapped_column(String(20), default="STAFF")
     technician_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
     parts_cost: Mapped[int] = mapped_column(Integer, default=0)
     labour_cost: Mapped[int] = mapped_column(Integer, default=0)
@@ -424,3 +433,69 @@ class ReceiptLine(Base):
 
     receipt: Mapped[Receipt] = relationship(back_populates="lines")
     product: Mapped[Product] = relationship()
+
+
+class Image(Base):
+    __tablename__ = "images"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    public_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    content_type: Mapped[str] = mapped_column(String(64))
+    size: Mapped[int] = mapped_column(Integer)
+    data: Mapped[bytes] = mapped_column(LargeBinary)
+    uploaded_by_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class CustomerAccount(Base):
+    __tablename__ = "customer_accounts"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    phone: Mapped[str] = mapped_column(String(15), unique=True, index=True)
+    name: Mapped[str] = mapped_column(String(100))
+    password_hash: Mapped[str] = mapped_column(String(128))
+    failed_attempts: Mapped[int] = mapped_column(Integer, default=0)
+    locked_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class CustomerOTP(Base):
+    __tablename__ = "customer_otps"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    phone: Mapped[str] = mapped_column(String(15), index=True)
+    code_hash: Mapped[str] = mapped_column(String(128))
+    purpose: Mapped[str] = mapped_column(String(32), default="signup")
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class CustomerMessage(Base):
+    __tablename__ = "customer_messages"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    customer_id: Mapped[int] = mapped_column(ForeignKey("customer_accounts.id"), index=True)
+    lead_id: Mapped[int | None] = mapped_column(ForeignKey("leads.id"), index=True)
+    sender_type: Mapped[str] = mapped_column(String(20))  # "CUSTOMER" or "STAFF"
+    sender_id: Mapped[int | None] = mapped_column(Integer)
+    text: Mapped[str] = mapped_column(Text)
+    read_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    customer: Mapped[CustomerAccount] = relationship()
+    lead: Mapped[Lead | None] = relationship()
+
+
+class PaymentOrder(Base):
+    __tablename__ = "payment_orders"
+    id: Mapped[int] = mapped_column(primary_key=True)
+    order_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    quotation_id: Mapped[int] = mapped_column(ForeignKey("quotations.id"))
+    customer_id: Mapped[int | None] = mapped_column(ForeignKey("customer_accounts.id"))
+    amount: Mapped[int] = mapped_column(Integer)
+    currency: Mapped[str] = mapped_column(String(10), default="INR")
+    status: Mapped[str] = mapped_column(String(20), default="CREATED")  # CREATED, PAID, FAILED
+    receipt: Mapped[str | None] = mapped_column(String(64))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    quotation: Mapped[Quotation] = relationship()
+    customer: Mapped[CustomerAccount | None] = relationship()

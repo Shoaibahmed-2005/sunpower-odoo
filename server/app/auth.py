@@ -63,6 +63,8 @@ def get_current_user(request: Request, db: Session = Depends(get_db)) -> User:
     try:
         # algorithms is pinned so a token can't switch to "none" or another algorithm
         payload = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
+        if payload.get("kind") == "customer":
+            raise ApiError(401, "Session expired, please log in again")
         user_id = int(payload["sub"])
     except (jwt.PyJWTError, KeyError, ValueError):
         raise ApiError(401, "Session expired, please log in again")
