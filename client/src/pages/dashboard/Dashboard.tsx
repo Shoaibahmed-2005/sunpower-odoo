@@ -233,7 +233,7 @@ export default function Dashboard() {
 
   return (
     <DashboardPage
-      title="Director's Dashboard"
+      title="Admin Dashboard"
       subtitle={`SunPower operational overview for ${period}`}
       actions={headerActions}
       kpiCards={kpiCards}

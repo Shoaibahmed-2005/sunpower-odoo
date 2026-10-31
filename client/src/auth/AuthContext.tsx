@@ -6,7 +6,7 @@ import { createContext, useContext, useState, useEffect, ReactNode } from "react
 import api from "../api/client";
 
 const ACCESS: Record<string, string[]> = {
-  DIRECTOR: ["*"],
+  ADMIN: ["*"],
   SALES: [
     "dashboard:read",
     "leads:read",

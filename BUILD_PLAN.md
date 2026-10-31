@@ -27,7 +27,7 @@
 3. **Router prefixes.** Each router sets its own `APIRouter(prefix=...)`; `main.py` adds none (DECISIONS.md, A).
 4. **Transactions.** Never `with db.begin()`. Every write endpoint: guards → changes → one `db.commit()`; `db.rollback()` + re-raise on any error. Lock rows that hold money/stock/status with `with_for_update=True` before checking them.
 5. **Subsidy (team decision, A + C).** The customer pays `total − subsidy` (`netPayable`); `balance = netPayable − paid`. Profit revenue adds the subsidy back. *(This replaces the earlier "subsidy doesn't reduce the bill" note.)* All new screens (portal included) show: Total, Subsidy, Net payable, Paid, Pending, Balance.
-6. **Role rename.** `DIRECTOR` becomes **`ADMIN`** (WP2). Admin = super user (`"*"`) + user management. The problem statement's "director" means this Admin user.
+6. **Role rename.** Role is **`ADMIN`** (WP2). Admin = super user (`"*"`) + user management. The problem statement's scene 6 role means this Admin user.
 7. **No blockchain / "on-chain".** There is no on-chain code in the project and none will be added. If asked about Odoo-style `onchange`: all calculations (totals, stages, warranty, subsidy) run on the server; the browser only displays them.
 8. **Performance rule.** A list endpoint must not run one query per row (N+1). Budget: **≤ 6 SQL queries per list request** on seed data, enforced by a test (WP3).
 9. **Customers** get a separate, phone + OTP portal (WP4). They never use the staff login or staff cookie.
@@ -37,7 +37,7 @@
 | WP | What | Owner(s) | Depends on | Est. |
 |---|---|---|---|---|
 | **WP1** | Fix open bugs | C, D | — | 15 min |
-| **WP2** | Director → Admin + user management | **B** (single branch, touches A/C/D files listed) | WP1 merged | 45 min |
+| **WP2** | Admin role + user management | **B** (single branch, touches A/C/D files listed) | WP1 merged | 45 min |
 | **WP3** | Remove N+1 queries | A, C, D (each own files, in parallel) | WP2 merged | 30 min |
 | **WP4** | Customer portal | **B** leads; A schema first; C invoices; D app shell | WP2 merged | 2 h |
 | **WP5** | Remaining P2 (if time) | C: subsidy tracker, technician pay · D: crew schedule, notification bell | WP4 merged | 2 h |
@@ -56,7 +56,7 @@
 
 ### V3.5 WP2 — Admin role and user management (B)
 
-**Rename.** `Role.DIRECTOR` → `Role.ADMIN` in every file listed in V3.3; seed user `admin` / `sun123`, name "Admin"; `access.json` key `"ADMIN": ["*"]`; landing page `/`; dashboard title "Admin Dashboard". After the change, a repo-wide search for `DIRECTOR`/`Director` (outside the problem-statement quote in §1) returns nothing. Run `npm run reset` after merging (role values in the DB change).
+**Rename.** `Role.ADMIN` in every file listed in V3.3; seed user `admin` / `sun123`, name "Admin"; `access.json` key `"ADMIN": ["*"]`; landing page `/`; dashboard title "Admin Dashboard". After the change, a repo-wide search for old role names (outside the problem-statement quote in §1) returns nothing. Run `npm run reset` after merging (role values in the DB change).
 
 **API (B, `routers/users.py`, perm `users:write` — only ADMIN's `"*"` has it):**
 
@@ -322,12 +322,12 @@ sunpower/
 
 ## 4. Roles and access
 
-Five staff roles log in through one login page; the customer never logs in. Only the Director creates users (no public sign-up).
+Five staff roles log in through one login page; the customer never logs in. Only the Admin creates users (no public sign-up).
 
 `shared/access.json` (B writes in Phase 0; backend `require_perm` and the frontend menu both read it):
 ```json
 {
-  "DIRECTOR":   ["*"],
+  "ADMIN":      ["*"],
   "SALES":      ["dashboard:read","leads:read","leads:write","surveys:read","surveys:approve",
                  "quotes:read","quotes:write","invoices:read","invoices:write",
                  "packages:read","stock:read","jobs:read","users:read"],
@@ -339,7 +339,7 @@ Five staff roles log in through one login page; the customer never logs in. Only
 }
 ```
 - Technicians only ever see **their own** surveys and jobs (filter by `technician_id = current_user.id` on the server).
-- Landing page after login: Director `/`, Sales `/leads`, Technician `/m`, Warehouse `/dispatches`, Support `/tickets`.
+- Landing page after login: Admin `/`, Sales `/leads`, Technician `/m`, Warehouse `/dispatches`, Support `/tickets`.
 - A forbidden API call returns **403**; a forbidden page shows the `Forbidden` component.
 
 ---
@@ -350,7 +350,7 @@ Python attributes are `snake_case`; the API exposes `camelCase` (§6). Money is 
 
 **Enums** (in `models.py`, imported everywhere):
 ```
-Role:          DIRECTOR SALES TECHNICIAN WAREHOUSE SUPPORT
+Role:          ADMIN SALES TECHNICIAN WAREHOUSE SUPPORT
 LeadSource:    WEB WHATSAPP CALL
 SystemType:    ON_GRID OFF_GRID
 LeadStage:     NEW CONTACTED QUALIFIED SURVEY_SCHEDULED SURVEY_APPROVED QUOTED WON LOST
@@ -719,7 +719,7 @@ Always `alt="SunPower"`, never stretched (keep aspect ratio with `h-*` + `w-auto
 ## 10. Seed data (A, `app/seed.py`; posted in chat after Sync 1)
 
 `python -m app.seed` → drop all tables, create all, insert:
-- **Users** (password `sun123` for all): `ravi` Director · `priya`, `karan` Sales · `vikram`, `arjun`, `sameer` Technician (hourly_rate 400) · `deepa` Warehouse · `farhan` Support.
+- **Users** (password `sun123` for all): `admin` Admin · `priya`, `karan` Sales · `vikram`, `arjun`, `sameer` Technician (hourly_rate 400) · `deepa` Warehouse · `farhan` Support.
 - **Counters** for every key, next = 1 (then advanced by the seeded records).
 - **Products** (code · tracking · warranty months · cost · price — sample figures):
   `PNL-545` Solar panel 545 Wp · LOT · 240 · 11500 · 14000 · qty 200
@@ -755,7 +755,7 @@ Every member: write your endpoints first (test them in `/docs`), post `[CONTRACT
 ### Member B — Auth, users, enquiries, surveys
 - **Phase 0:** `auth.py` (§6), `refs.py`, `shared/access.json` (§4), `routers/auth.py` login/logout/me working, `GET /users`.
 - **P0:** leads endpoints, surveys endpoints (§7). Pages: Enquiry list (search, stage filter, kanban by stage in P1), **New enquiry** (source dropdown WEB/WHATSAPP/CALL), **Enquiry form** (StatusBar of stages, Log call dialog with roof area / bill / grid OK / notes, Schedule survey dialog with technician + date, **Create quotation button disabled with tooltip until `canQuote`** → calls C's `POST /leads/:id/quotation` and navigates to the quotation), Survey list, **Survey detail** with Approve / Reject (reason), **technician Survey form** at `/m/surveys/:id` (direction select, tilt, cable distance, area, photo upload via `/api/uploads`, Submit).
-- **P1:** public enquiry form `/enquire`, users admin page for the Director (create user, role, hourly rate).
+- **P1:** public enquiry form `/enquire`, users admin page for the Admin (create user, role, hourly rate).
 - **Tests:** 401 without cookie; 403 for wrong role (technician → `/api/leads`); survey approve flips lead stage; technician can't submit someone else's survey.
 
 ### Member C — Quotations, payments, invoices, frontend plumbing
@@ -805,7 +805,7 @@ Stand-up at each sync: what's merged, what's next, what blocks you (5 minutes; s
 4. Warehouse (`deepa`) opens the READY dispatch → Validate disabled → scans 2 serials (a duplicate is refused) → Validate → warranty banner (2 yr inverter/controller, 20 yr panels).
 5. Technician opens the job → Start → size, photo, customer signs → Finish.
 6. Support (`farhan`) looks up `INV-OG3-22B0077` → Expired → ticket → assign → resolve with costs → repair invoice created → customer confirmed → Closed. Look up `INV-OF5-23C0412` → Covered → resolve → ₹0.
-7. Director (`ravi`) dashboard: today / week / month; P1: profit per job with the loss-making job.
+7. Admin (`admin`) dashboard: today / week / month; P1: profit per job with the loss-making job.
 8. Log in as `vikram`, open `/leads` → Forbidden; call `/api/leads` → 403.
 
 ---

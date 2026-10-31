@@ -222,7 +222,7 @@
 ---
 
 ### client/src/pages/dashboard/Dashboard.tsx
-**Purpose:** Director & staff operational dashboard featuring 4 KPI cards (Booked, Collected, Due, Open Repairs), "Needs Immediate Attention" actionable links to filtered lists, horizontal Sales Pipeline conversion funnel, top 5 audited Profit-Per-Job table (highlighting negative margin jobs in danger color per §8.3), and a Recharts daily completions bar chart.
+**Purpose:** Admin & staff operational dashboard featuring 4 KPI cards (Booked, Collected, Due, Open Repairs), "Needs Immediate Attention" actionable links to filtered lists, horizontal Sales Pipeline conversion funnel, top 5 audited Profit-Per-Job table (highlighting negative margin jobs in danger color per §8.3), and a Recharts daily completions bar chart.
 **Rules enforced:** All counts deep-link to filtered lists (e.g. `/surveys?status=SUBMITTED`, `/dispatches?status=READY`). Indian Rupee formatting (`formatINR`) used everywhere.
 **Libraries:** `recharts` (BarChart, Bar, ResponsiveContainer, Tooltip, XAxis, YAxis), `lucide-react`.
 

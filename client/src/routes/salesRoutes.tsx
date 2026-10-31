@@ -8,6 +8,7 @@ import SurveysList from "../pages/sales/SurveysList";
 import SurveyDetail from "../pages/sales/SurveyDetail";
 import SurveyForm from "../pages/mobile/SurveyForm";
 import EnquiryForm from "../pages/public/EnquiryForm";
+import UsersPage from "../pages/admin/UsersPage";
 
 type Route = { path: string; element: ReactNode; perm: string; menu?: { group: string; label: string } };
 
@@ -19,6 +20,7 @@ export const salesRoutes: Route[] = [
   { path: "/surveys", element: <SurveysList />, perm: "surveys:approve", menu: { group: "Sales", label: "Surveys" } },
   { path: "/surveys/:id", element: <SurveyDetail />, perm: "surveys:approve" },
   { path: "/m/surveys/:id", element: <SurveyForm />, perm: "surveys:submit" },
+  { path: "/admin/users", element: <UsersPage />, perm: "users:write", menu: { group: "Settings", label: "Users & Roles" } },
 ];
 
 // Public page: mount OUTSIDE <Layout> and WITHOUT <RequirePerm> (customers never log in).

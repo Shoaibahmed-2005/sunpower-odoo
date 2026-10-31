@@ -40,7 +40,7 @@ Likely questions:
 ### server/app/models.py
 Purpose: every table and enum from BUILD_PLAN §5. Only A edits it.
 Key choices:
-- Enums are `str, Enum`: `role.value == "DIRECTOR"` and JSON shows the plain name.
+- Enums are `str, Enum`: `role.value == "ADMIN"` and JSON shows the plain name.
 - Money is `Integer` rupees: no float rounding errors.
 - `serial_units.serial` unique: one physical unit can't be in stock twice or go to two customers.
 - `jobs.quotation_id` unique: one confirmed quote creates exactly one job, enforced by the database even if two confirms race.
@@ -84,7 +84,7 @@ Security: `require_perm` on every route; serials are stripped and length-limited
 
 ### server/app/routers/dashboard.py
 `GET /dashboard?period=today|week|month` (dashboard:read): `ROLE_GROUPS` decides which cards each role gets (warehouse: jobs + dispatches; support: jobs, tickets, money …). Period counts use `created_at` / `confirmed_at` / `paid_at` ≥ start of today / Monday / the 1st. Live counts (to call, late, ready…) ignore the period.
-`GET /reports/profit?from=&to=` (reports:read → Director only): per DONE job, revenue = invoices (not REPAIR) + subsidy · parts = qty × cost, except SERIAL lines use the real `unit_cost` of the delivered units · labour = hours × (1 + crew names) × hourly rate · repairs = parts + labour of under-warranty tickets on this job's units · margin guards against revenue 0.
+`GET /reports/profit?from=&to=` (reports:read → Admin only): per DONE job, revenue = invoices (not REPAIR) + subsidy · parts = qty × cost, except SERIAL lines use the real `unit_cost` of the delivered units · labour = hours × (1 + crew names) × hourly rate · repairs = parts + labour of under-warranty tickets on this job's units · margin guards against revenue 0.
 Seed result: Anil +₹43,050 (23%), Ramesh −₹5,750 (the free ₹58,000 inverter repair).
 
 ### server/app/seed.py (demo states)

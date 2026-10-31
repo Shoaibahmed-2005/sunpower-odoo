@@ -51,10 +51,16 @@ const MENU_GROUPS: MenuDropdown[] = [
       { to: "/invoices", label: "Invoices", perm: "invoices:read" },
     ],
   },
+  {
+    title: "Settings",
+    items: [
+      { to: "/admin/users", label: "Users & Roles", perm: "users:write" },
+    ],
+  },
 ];
 
 const landingPages: Record<string, string> = {
-  DIRECTOR: "/",
+  ADMIN: "/",
   SALES: "/leads",
   TECHNICIAN: "/m",
   WAREHOUSE: "/dispatches",
@@ -128,7 +134,7 @@ export default function Layout() {
     items: group.items.filter((item) => can(item.perm)),
   })).filter((group) => group.items.length > 0);
 
-  // "My Work" is ONLY shown to TECHNICIAN role (even though Director has "*")
+  // "My Work" is ONLY shown to TECHNICIAN role (even though Admin has "*")
   const isTechnician = user.role === "TECHNICIAN";
 
   return (

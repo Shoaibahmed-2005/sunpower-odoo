@@ -38,7 +38,7 @@ Period = Literal["today", "week", "month"]
 
 # which dashboard groups each role sees (matches what shared/access.json lets them read)
 ROLE_GROUPS = {
-    Role.DIRECTOR: {"leads", "surveys", "quotes", "jobs", "dispatches", "tickets", "money"},
+    Role.ADMIN: {"leads", "surveys", "quotes", "jobs", "dispatches", "tickets", "money"},
     Role.SALES: {"leads", "surveys", "quotes", "jobs", "money"},
     Role.WAREHOUSE: {"jobs", "dispatches"},
     Role.SUPPORT: {"jobs", "tickets", "money"},
@@ -181,7 +181,7 @@ def profit_rows(db: Session, from_: date | None, to: date | None) -> list[Profit
 @router.get("/reports/profit", response_model=list[ProfitRow])
 def profit_report(from_: date | None = Query(None, alias="from"), to: date | None = None,
                   user=Depends(require_perm("reports:read")), db: Session = Depends(get_db)):
-    """Profit of every finished job. Perm: reports:read (only the Director's "*" has it). 400 on a bad date."""
+    """Profit of every finished job. Perm: reports:read (only the Admin's "*" has it). 400 on a bad date."""
     return profit_rows(db, from_, to)
 
 
