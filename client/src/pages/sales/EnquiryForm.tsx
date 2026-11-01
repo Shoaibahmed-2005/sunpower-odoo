@@ -12,67 +12,52 @@ import Field from "../../components/Field";
 import { cleanPhone, validateEnquiry } from "./types";
 import { CheckCircle2, Sun, Sparkles, ArrowRight, ShieldCheck } from "lucide-react";
 
-interface EnquiryFormData {
+interface EnquiryPayload {
   name: string;
   phone: string;
   address: string;
-  kw: string;
-  systemType: "ON_GRID" | "OFF_GRID";
-  monthlyBill: string;
+  kw: number;
+  systemType: string;
+  monthlyBill: number;
   subsidyInterest: boolean;
-  website: string; // Honeypot
+  website: string; // honeypot: the server rejects the request if a bot filled it
 }
 
-const INITIAL_FORM: EnquiryFormData = {
-  name: "",
-  phone: "",
-  address: "",
-  kw: "3",
-  systemType: "ON_GRID",
-  monthlyBill: "",
-  subsidyInterest: true,
-  website: "",
-};
-
 export default function EnquiryForm() {
-  const [form, setForm] = useState<EnquiryFormData>(INITIAL_FORM);
   const [errors, setErrors] = useState<Record<string, string>>({});
-
-  const setField = <K extends keyof EnquiryFormData>(key: K, value: EnquiryFormData[K]) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
-    if (errors[key]) {
-      setErrors((prev) => {
-        const next = { ...prev };
-        delete next[key];
-        return next;
-      });
-    }
-  };
+  // only what the success screen needs; the fields themselves live in the DOM (uncontrolled form)
+  const [submitted, setSubmitted] = useState<{ name: string; phone: string } | null>(null);
 
   const enquiryMutation = useMutation({
-    mutationFn: async () => {
-      const payload = {
-        name: form.name.trim(),
-        phone: cleanPhone(form.phone) || form.phone.trim(),
-        address: form.address.trim(),
-        kw: Number(form.kw),
-        systemType: form.systemType,
-        monthlyBill: Number(form.monthlyBill),
-        subsidyInterest: form.subsidyInterest,
-        website: form.website, // server rejects if populated by bot
-      };
+    mutationFn: async (payload: EnquiryPayload) => {
       const res = await api.post<{ ref: string }>("/public/enquiries", payload);
       return res.data;
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Uncontrolled form: no onChange/useState per field, so typing doesn't re-render the page.
+  // All values are read once, here, from the submit event. The server validates everything again.
+  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const validationErrors = validateEnquiry(form);
+    const data = new FormData(e.currentTarget);
+    const get = (key: string) => String(data.get(key) ?? "");
+    const values = { name: get("name"), phone: get("phone"), address: get("address"), kw: get("kw"), monthlyBill: get("monthlyBill") };
+
+    const validationErrors = validateEnquiry(values);
     setErrors(validationErrors);
-    if (Object.keys(validationErrors).length === 0) {
-      enquiryMutation.mutate();
-    }
+    if (Object.keys(validationErrors).length > 0) return;
+
+    setSubmitted({ name: values.name.trim(), phone: values.phone.trim() });
+    enquiryMutation.mutate({
+      name: values.name.trim(),
+      phone: cleanPhone(values.phone) || values.phone.trim(),
+      address: values.address.trim(),
+      kw: Number(values.kw),
+      systemType: get("systemType"),
+      monthlyBill: Number(values.monthlyBill),
+      subsidyInterest: data.get("subsidyInterest") === "on",
+      website: get("website"),
+    });
   };
 
   const inputCls =
@@ -98,7 +83,7 @@ export default function EnquiryForm() {
             </h1>
 
             <p className="text-sm text-[var(--muted)]">
-              Thanks, <strong className="text-[var(--text)]">{form.name}</strong>! Your solar assessment request has been registered under:
+              Thanks, <strong className="text-[var(--text)]">{submitted?.name}</strong>! Your solar assessment request has been registered under:
             </p>
 
             <div className="p-3 bg-[var(--bg)] rounded-xl border border-[var(--border)] font-mono text-lg font-bold text-[var(--primary)]">
@@ -106,7 +91,7 @@ export default function EnquiryForm() {
             </div>
 
             <p className="text-xs text-[var(--muted)] leading-relaxed">
-              Our solar engineering team will call you at <strong className="text-[var(--text)] font-mono">{form.phone}</strong> to confirm your site details and schedule a free roof survey.
+              Our solar engineering team will call you at <strong className="text-[var(--text)] font-mono">{submitted?.phone}</strong> to confirm your site details and schedule a free roof survey.
             </p>
 
             <div className="pt-4 border-t border-[var(--border)] flex flex-col gap-2">
@@ -157,8 +142,7 @@ export default function EnquiryForm() {
                 autoComplete="name"
                 maxLength={100}
                 placeholder="e.g. Rahul Sharma"
-                value={form.name}
-                onChange={(e) => setField("name", e.target.value)}
+                name="name"
               />
             </Field>
 
@@ -169,8 +153,7 @@ export default function EnquiryForm() {
                 inputMode="numeric"
                 placeholder="10-digit mobile number (e.g. 98220 00001)"
                 maxLength={15}
-                value={form.phone}
-                onChange={(e) => setField("phone", e.target.value)}
+                name="phone"
               />
             </Field>
 
@@ -180,8 +163,7 @@ export default function EnquiryForm() {
                 autoComplete="street-address"
                 maxLength={300}
                 placeholder="Building, street, locality, city"
-                value={form.address}
-                onChange={(e) => setField("address", e.target.value)}
+                name="address"
               />
             </Field>
 
@@ -189,8 +171,8 @@ export default function EnquiryForm() {
               <Field label="Required Capacity (kW)" error={errors.kw}>
                 <select
                   className={inputCls}
-                  value={form.kw}
-                  onChange={(e) => setField("kw", e.target.value)}
+                  name="kw"
+                  defaultValue="3"
                 >
                   <option value="1">1 kW (Small Home / ~120 units/mo)</option>
                   <option value="2">2 kW (2-3 BHK / ~240 units/mo)</option>
@@ -203,8 +185,8 @@ export default function EnquiryForm() {
               <Field label="System Preference">
                 <select
                   className={inputCls}
-                  value={form.systemType}
-                  onChange={(e) => setField("systemType", e.target.value as "ON_GRID" | "OFF_GRID")}
+                  name="systemType"
+                  defaultValue="ON_GRID"
                 >
                   <option value="ON_GRID">On-Grid (Govt. Subsidy Eligible)</option>
                   <option value="OFF_GRID">Off-Grid (With Battery Storage)</option>
@@ -218,16 +200,15 @@ export default function EnquiryForm() {
                 type="number"
                 min={1}
                 placeholder="e.g. 3500"
-                value={form.monthlyBill}
-                onChange={(e) => setField("monthlyBill", e.target.value)}
+                name="monthlyBill"
               />
             </Field>
 
             <label className="flex items-start gap-2.5 pt-1 text-sm text-[var(--text)] cursor-pointer select-none">
               <input
                 type="checkbox"
-                checked={form.subsidyInterest}
-                onChange={(e) => setField("subsidyInterest", e.target.checked)}
+                name="subsidyInterest"
+                defaultChecked
                 className="mt-0.5 rounded text-[var(--primary)] focus:ring-[var(--primary)] border-[var(--border)]"
               />
               <span>I am interested in Central Govt. PM Surya Ghar subsidy processing.</span>
@@ -241,8 +222,7 @@ export default function EnquiryForm() {
               autoComplete="off"
               aria-hidden="true"
               className="sr-only"
-              value={form.website}
-              onChange={(e) => setField("website", e.target.value)}
+              defaultValue=""
             />
 
             <Button
